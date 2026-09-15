@@ -766,8 +766,12 @@ async function loadPage(pageKey){
       return body.value;
     }
   }catch(e){
-    console.error("Load failed, falling back to defaults", e);
+    console.error("Load failed, showing defaults for now (not overwriting saved data)", e);
+    // Return defaults for THIS view only — do not persist, so we never
+    // stomp real saved data because of a transient read failure.
+    return JSON.parse(JSON.stringify(DEFAULTS[pageKey] || []));
   }
+  // Genuinely nothing saved yet for this page — safe to seed it once.
   const seed = JSON.parse(JSON.stringify(DEFAULTS[pageKey] || []));
   await savePage(pageKey, seed);
   return seed;
