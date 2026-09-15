@@ -312,8 +312,7 @@
     border-radius:4px;
     line-height:1.6;
   }
-  .tag.aus{background:var(--aus-bg); color:var(--aus);}
-  .tag.ca{background:var(--ca-bg); color:var(--ca);}
+  .tag.site{background:var(--ca-bg); color:var(--ca);}
   .tag.all{background:var(--all-bg); color:var(--all);}
   .tag.dept{background:var(--all-bg); color:var(--ink-soft); font-weight:500;}
   .tag.assignee{background:var(--assignee-bg); color:var(--assignee); font-weight:500;}
@@ -592,11 +591,7 @@
 
     <div class="filter-group" id="sideFilters">
       <div class="filter-label">Site</div>
-      <div class="filter-pills" id="sitePills">
-        <button class="pill active" data-site="all">All</button>
-        <button class="pill" data-site="aus">AUS</button>
-        <button class="pill" data-site="ca">CA</button>
-      </div>
+      <div class="filter-pills" id="sitePills"></div>
 
       <div class="filter-label" style="margin-top:14px;">Guide status</div>
       <div class="filter-pills" id="statusPills">
@@ -641,11 +636,17 @@
 /* ============ Config ============ */
 const GUIDE = "guide", REF = "ref", NONE = "none", NOTNEEDED = "notneeded";
 const PAGELIST_KEY = "__pagelist__";
+const SITELIST_KEY = "__sitelist__";
 
 const DEFAULT_PAGELIST = [
   { key: "onboarding", name: "Onboarding" },
   { key: "offboarding", name: "Offboarding" },
   { key: "campaign", name: "Campaign change" },
+];
+
+const DEFAULT_SITELIST = [
+  { key: "aus", name: "AUS" },
+  { key: "ca", name: "CA" },
 ];
 
 const CUSTOM_DESCRIPTIONS = {
@@ -786,24 +787,25 @@ const DEFAULT_ONBOARDING = [
   ]},
 ];
 
-const DEFAULTS = { onboarding: DEFAULT_ONBOARDING, offboarding: [], campaign: [], [PAGELIST_KEY]: DEFAULT_PAGELIST };
+const DEFAULTS = { onboarding: DEFAULT_ONBOARDING, offboarding: [], campaign: [], [PAGELIST_KEY]: DEFAULT_PAGELIST, [SITELIST_KEY]: DEFAULT_SITELIST };
 
 /* ============ State ============ */
 let state = {
   currentPage: "onboarding",
   editMode: false,
   pageList: null,
+  siteList: null,
   data: {},
   filters: { site: "all", status: "all", search: "" }
 };
 let idCounter = 1;
 function nextId(){ return "t" + (idCounter++) + "_" + Date.now().toString(36); }
-function slugifyKey(name){
+function slugifyKey(name, existingList){
   let base = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  if(!base) base = "process";
+  if(!base) base = "item";
   base = base.slice(0, 60);
   let key = base, n = 2;
-  const existingKeys = new Set((state.pageList||[]).map(p=>p.key));
+  const existingKeys = new Set((existingList||[]).map(p=>p.key));
   while(existingKeys.has(key)){
     key = `${base}-${n}`;
     n++;
@@ -814,22 +816,41 @@ function slugifyKey(name){
 /* ============ Storage helpers (shared backend via Netlify Function) ============ */
 const API_BASE = "/.netlify/functions/data";
 
+function ensureTaskIds(groups){
+  if(!Array.isArray(groups)) return false;
+  let changed = false;
+  groups.forEach(g=>{
+    if(!Array.isArray(g.tasks)) return;
+    g.tasks.forEach(t=>{
+      if(!t.id){ t.id = nextId(); changed = true; }
+    });
+  });
+  return changed;
+}
+
 async function loadPage(pageKey){
   try{
     const res = await fetch(`${API_BASE}?page=${encodeURIComponent(pageKey)}`);
     if(!res.ok) throw new Error("Bad response " + res.status);
     const body = await res.json();
     if(body && body.value){
-      return body.value;
+      const data = body.value;
+      if(ensureTaskIds(data)){
+        await savePage(pageKey, data); // persist the newly assigned ids so they stay stable
+      }
+      return data;
     }
   }catch(e){
     console.error("Load failed, showing defaults for now (not overwriting saved data)", e);
     // Return defaults for THIS view only — do not persist, so we never
     // stomp real saved data because of a transient read failure.
-    return JSON.parse(JSON.stringify(DEFAULTS[pageKey] || []));
+    const fallback = JSON.parse(JSON.stringify(DEFAULTS[pageKey] || []));
+    ensureTaskIds(fallback);
+    return fallback;
   }
   // Genuinely nothing saved yet for this page — safe to seed it once.
   const seed = JSON.parse(JSON.stringify(DEFAULTS[pageKey] || []));
+  ensureTaskIds(seed);
   await savePage(pageKey, seed);
   return seed;
 }
@@ -869,10 +890,20 @@ function showToast(msg){
 /* ============ Rendering helpers ============ */
 function slug(s){ return s.toLowerCase().replace(/[^a-z0-9]+/g,'-'); }
 
+function renderSitePills(){
+  const container = document.getElementById('sitePills');
+  let html = `<button class="pill ${state.filters.site==='all'?'active':''}" data-site="all">All</button>`;
+  (state.siteList||[]).forEach(s=>{
+    html += `<button class="pill ${state.filters.site===s.key?'active':''}" data-site="${escapeHtml(s.key)}">${escapeHtml(s.name)}</button>`;
+  });
+  container.innerHTML = html;
+}
+
 function siteTag(site){
-  if(site==='aus') return '<span class="tag aus">AUS only</span>';
-  if(site==='ca') return '<span class="tag ca">CA only</span>';
-  return '<span class="tag all">All company</span>';
+  if(!site || site === 'all') return '<span class="tag all">All company</span>';
+  const entry = (state.siteList||[]).find(s => s.key === site);
+  const label = entry ? entry.name : site;
+  return `<span class="tag site">${escapeHtml(label)} only</span>`;
 }
 
 function escapeHtml(str){
@@ -912,6 +943,8 @@ function renderPage(){
   const meta = getPageMeta(pageEntry.key, pageEntry.name);
   document.getElementById('pageTitle').innerHTML = meta.title;
   document.getElementById('pageDesc').textContent = meta.desc;
+
+  renderSitePills();
 
   const editBtn = document.getElementById('editToggle');
   editBtn.classList.toggle('active', state.editMode);
@@ -1132,8 +1165,9 @@ function openTaskModal(loc){
         <label for="fSite">Site</label>
         <select id="fSite">
           <option value="all" ${existing.site==='all'||!existing.site?'selected':''}>All company</option>
-          <option value="aus" ${existing.site==='aus'?'selected':''}>AUS only</option>
-          <option value="ca" ${existing.site==='ca'?'selected':''}>CA only</option>
+          ${(state.siteList||[]).map(s =>
+            `<option value="${escapeHtml(s.key)}" ${existing.site===s.key?'selected':''}>${escapeHtml(s.name)} only</option>`
+          ).join('')}
         </select>
       </div>
       <div class="field">
@@ -1341,6 +1375,8 @@ document.getElementById('pageSwitch').addEventListener('click', async e=>{
 function renderSettingsPage(){
   const body = document.getElementById('pageBody');
   let html = `<div style="max-width:520px;">`;
+
+  html += `<h2 style="font-size:13px; font-weight:600; color:var(--ink); border-left:3px solid var(--brand); padding-left:10px; margin:0 0 12px;">Processes</h2>`;
   state.pageList.forEach((p, i)=>{
     html += `<div class="task-row" style="grid-template-columns:1fr auto;">
       <div class="task-main">
@@ -1357,10 +1393,34 @@ function renderSettingsPage(){
       </div>
     </div>`;
   });
-  html += `<button class="add-section-btn" id="addProcessBtn" style="margin-top:14px;">
+  html += `<button class="add-section-btn" id="addProcessBtn" style="margin-top:6px; margin-bottom:32px;">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
     Add process
   </button>`;
+
+  html += `<h2 style="font-size:13px; font-weight:600; color:var(--ink); border-left:3px solid var(--brand); padding-left:10px; margin:0 0 12px;">Sites</h2>
+  <p style="font-size:13px; color:var(--ink-soft); margin:0 0 12px;">These are the site options available when tagging a task (besides "All company").</p>`;
+  (state.siteList||[]).forEach((s, i)=>{
+    html += `<div class="task-row" style="grid-template-columns:1fr auto;">
+      <div class="task-main">
+        <div class="task-name">${escapeHtml(s.name)}</div>
+        <div class="task-note" style="margin-top:2px;">Key: ${escapeHtml(s.key)}</div>
+      </div>
+      <div class="action">
+        <button class="icon-btn" data-rename-site="${i}" title="Rename site">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        </button>
+        <button class="icon-btn danger" data-delete-site="${i}" title="Delete site">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>
+        </button>
+      </div>
+    </div>`;
+  });
+  html += `<button class="add-section-btn" id="addSiteBtn" style="margin-top:6px;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    Add site
+  </button>`;
+
   html += `</div>`;
   body.innerHTML = html;
 
@@ -1371,6 +1431,61 @@ function renderSettingsPage(){
   document.querySelectorAll('[data-delete-process]').forEach(btn=>{
     btn.addEventListener('click', ()=>deleteProcess(+btn.dataset.deleteProcess));
   });
+
+  document.getElementById('addSiteBtn').addEventListener('click', ()=>openSiteModal(-1));
+  document.querySelectorAll('[data-rename-site]').forEach(btn=>{
+    btn.addEventListener('click', ()=>openSiteModal(+btn.dataset.renameSite));
+  });
+  document.querySelectorAll('[data-delete-site]').forEach(btn=>{
+    btn.addEventListener('click', ()=>deleteSite(+btn.dataset.deleteSite));
+  });
+}
+
+function openSiteModal(idx){
+  const isNew = idx === -1;
+  const existing = isNew ? { name: "" } : state.siteList[idx];
+  const box = document.getElementById('modalBox');
+  box.innerHTML = `
+    <h3>${isNew ? 'Add site' : 'Rename site'}</h3>
+    <div class="field">
+      <label for="fSiteName">Site name</label>
+      <input type="text" id="fSiteName" value="${escapeHtml(existing.name)}" placeholder="e.g. UK">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="modalCancel">Cancel</button>
+      <button class="btn primary" id="modalSave">${isNew ? 'Add site' : 'Save'}</button>
+    </div>
+  `;
+  document.getElementById('modalOverlay').classList.add('show');
+  const nameInput = document.getElementById('fSiteName');
+  nameInput.focus();
+
+  document.getElementById('modalCancel').addEventListener('click', closeModal);
+  document.getElementById('modalSave').addEventListener('click', async ()=>{
+    const name = nameInput.value.trim();
+    if(!name){ nameInput.focus(); return; }
+
+    if(isNew){
+      const key = slugifyKey(name, state.siteList);
+      state.siteList.push({ key, name });
+    } else {
+      state.siteList[idx].name = name;
+    }
+    await savePage(SITELIST_KEY, state.siteList);
+    closeModal();
+    renderSettingsPage();
+    showToast(isNew ? "Site added" : "Saved");
+  });
+}
+
+async function deleteSite(idx){
+  const entry = state.siteList[idx];
+  if(!confirm(`Delete "${entry.name}"? Any tasks currently tagged with this site will show it as an unrecognised tag until you re-tag them.`)) return;
+
+  state.siteList.splice(idx, 1);
+  await savePage(SITELIST_KEY, state.siteList);
+  renderSettingsPage();
+  showToast("Site deleted");
 }
 
 function openProcessModal(idx){
@@ -1398,7 +1513,7 @@ function openProcessModal(idx){
     if(!name){ nameInput.focus(); return; }
 
     if(isNew){
-      const key = slugifyKey(name);
+      const key = slugifyKey(name, state.pageList);
       state.pageList.push({ key, name });
       await savePageList(state.pageList);
       closeModal();
@@ -1442,6 +1557,7 @@ async function deleteProcess(idx){
 (async function init(){
   try{
     state.pageList = await loadPage(PAGELIST_KEY);
+    state.siteList = await loadPage(SITELIST_KEY);
     renderPageSwitchNav();
 
     const firstKey = state.pageList[0] ? state.pageList[0].key : null;
