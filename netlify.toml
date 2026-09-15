@@ -1,11 +1,6 @@
 [build]
   functions = "netlify/functions"
-  edge_functions = "netlify/edge-functions"
   publish = "."
-
-[[edge_functions]]
-  path = "/*"
-  function = "auth"
 
 [[redirects]]
   from = "/api/data"
