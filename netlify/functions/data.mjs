@@ -1,12 +1,12 @@
 import { getStore } from "@netlify/blobs";
 
-const VALID_PAGES = ["onboarding", "offboarding", "campaign"];
+const PAGE_KEY_PATTERN = /^[a-zA-Z0-9_-]{1,100}$/;
 
 export default async (req) => {
   const url = new URL(req.url);
   const page = url.searchParams.get("page");
 
-  if (!page || !VALID_PAGES.includes(page)) {
+  if (!page || !PAGE_KEY_PATTERN.test(page)) {
     return new Response(JSON.stringify({ error: "Unknown or missing page" }), {
       status: 400,
       headers: { "Content-Type": "application/json" },
