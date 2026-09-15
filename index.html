@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Process Task Index — AUS &amp; CA</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap');
+
+  :root{
+    --paper:#F7F6F1;
+    --panel:#FFFFFF;
+    --ink:#1C2430;
+    --ink-soft:#5B6472;
+    --line:#E3E0D6;
+    --aus:#9C6B26;
+    --aus-bg:#F3E9D6;
+    --ca:#2F6B63;
+    --ca-bg:#DDEBE8;
+    --all:#5B6472;
+    --all-bg:#EDEBE4;
+    --go:#2E6B4C;
+    --go-bg:#E4EFE8;
+    --ref:#5A6B8C;
+    --ref-bg:#E7EAF3;
+    --missing:#8A8478;
+    --danger:#A3453B;
+    --danger-bg:#F4E2DF;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',system-ui,sans-serif;
+    font-size:15px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .shell{
+    display:grid;
+    grid-template-columns:250px 1fr;
+    min-height:100vh;
+  }
+
+  /* ---------- Sidebar ---------- */
+  aside{
+    border-right:1px solid var(--line);
+    padding:28px 20px;
+    position:sticky;
+    top:0;
+    height:100vh;
+    overflow-y:auto;
+    background:var(--paper);
+  }
+  .brand{
+    font-weight:700;
+    font-size:16px;
+    letter-spacing:-0.01em;
+    margin-bottom:2px;
+  }
+  .brand-sub{
+    color:var(--ink-soft);
+    font-size:12.5px;
+    margin-bottom:18px;
+  }
+
+  .page-switch{
+    display:flex;
+    flex-direction:column;
+    gap:3px;
+    margin-bottom:20px;
+    padding-bottom:18px;
+    border-bottom:1px solid var(--line);
+  }
+  .page-tab{
+    text-align:left;
+    border:none;
+    background:transparent;
+    padding:7px 9px;
+    border-radius:6px;
+    font-family:inherit;
+    font-size:13.5px;
+    font-weight:500;
+    color:var(--ink-soft);
+    cursor:pointer;
+  }
+  .page-tab:hover{background:var(--all-bg);}
+  .page-tab.active{
+    background:var(--ink);
+    color:#fff;
+    font-weight:600;
+  }
+
+  .search-wrap{margin-bottom:18px;}
+  .search-wrap input{
+    width:100%;
+    padding:9px 11px;
+    border:1px solid var(--line);
+    border-radius:6px;
+    font-family:inherit;
+    font-size:13.5px;
+    background:var(--panel);
+    color:var(--ink);
+  }
+  .search-wrap input:focus{
+    outline:2px solid var(--ink);
+    outline-offset:1px;
+  }
+  .search-wrap input:disabled{opacity:.5;}
+
+  .filter-group{margin-bottom:20px;}
+  .filter-label{
+    font-size:11.5px;
+    color:var(--ink-soft);
+    margin-bottom:8px;
+    font-weight:600;
+  }
+  .filter-pills{display:flex;flex-wrap:wrap;gap:6px;}
+  .pill{
+    border:1px solid var(--line);
+    background:var(--panel);
+    padding:5px 10px;
+    border-radius:20px;
+    font-size:12.5px;
+    cursor:pointer;
+    color:var(--ink-soft);
+    font-weight:500;
+    transition:border-color .12s ease, color .12s ease, background .12s ease;
+  }
+  .pill:hover{border-color:var(--ink-soft);}
+  .pill.active{
+    background:var(--ink);
+    border-color:var(--ink);
+    color:#fff;
+  }
+
+  nav.jump{display:flex;flex-direction:column;gap:2px;}
+  nav.jump a{
+    color:var(--ink-soft);
+    text-decoration:none;
+    font-size:13px;
+    padding:6px 8px;
+    border-radius:5px;
+    display:flex;
+    justify-content:space-between;
+    gap:8px;
+  }
+  nav.jump a:hover{background:var(--all-bg); color:var(--ink);}
+  nav.jump a span.count{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    color:var(--ink-soft);
+  }
+
+  .stat-block{
+    margin-top:22px;
+    padding-top:16px;
+    border-top:1px solid var(--line);
+    font-size:12.5px;
+    color:var(--ink-soft);
+  }
+  .stat-block b{color:var(--ink); font-family:'IBM Plex Mono',monospace; font-weight:500;}
+
+  .side-action{
+    display:block;
+    width:100%;
+    text-align:left;
+    margin-top:10px;
+    background:none;
+    border:none;
+    padding:6px 0;
+    font-family:inherit;
+    font-size:12.5px;
+    color:var(--ink-soft);
+    cursor:pointer;
+    text-decoration:underline;
+    text-underline-offset:2px;
+  }
+  .side-action:hover{color:var(--ink);}
+
+  /* ---------- Main ---------- */
+  main{padding:36px 44px 80px;max-width:920px;}
+  header.page-head{
+    margin-bottom:26px;
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:20px;
+  }
+  header.page-head .head-text h1{
+    font-size:26px;
+    margin:0 0 6px;
+    letter-spacing:-0.015em;
+  }
+  header.page-head .head-text p{
+    margin:0;
+    color:var(--ink-soft);
+    font-size:14px;
+    max-width:60ch;
+  }
+
+  .edit-toggle{
+    flex-shrink:0;
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    border:1px solid var(--line);
+    background:var(--panel);
+    padding:8px 14px;
+    border-radius:7px;
+    font-family:inherit;
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink);
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .edit-toggle:hover{border-color:var(--ink-soft);}
+  .edit-toggle.active{
+    background:var(--ink);
+    color:#fff;
+    border-color:var(--ink);
+  }
+  .edit-toggle svg{width:14px;height:14px;}
+
+  section.group{margin-bottom:30px;}
+  .group-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:12px;
+  }
+  section.group h2{
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink);
+    border-left:3px solid var(--ink);
+    padding-left:10px;
+    margin:0;
+  }
+  .group-tools{display:none; gap:6px;}
+  .group-tools.show{display:flex;}
+  .icon-btn{
+    border:1px solid var(--line);
+    background:var(--panel);
+    width:26px;height:26px;
+    border-radius:6px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    color:var(--ink-soft);
+    padding:0;
+  }
+  .icon-btn:hover{color:var(--ink); border-color:var(--ink-soft);}
+  .icon-btn.danger:hover{color:var(--danger); border-color:var(--danger);}
+  .icon-btn svg{width:13px;height:13px;}
+
+  .task-row{
+    display:grid;
+    grid-template-columns:1fr auto;
+    align-items:center;
+    gap:16px;
+    padding:13px 14px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:8px;
+    margin-bottom:6px;
+  }
+  .task-row.hidden{display:none;}
+
+  .task-main{min-width:0;}
+  .task-name{
+    font-weight:600;
+    font-size:14.5px;
+    margin-bottom:4px;
+  }
+  .task-meta{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    align-items:center;
+  }
+  .tag{
+    font-size:11px;
+    font-weight:600;
+    padding:2px 7px;
+    border-radius:4px;
+    line-height:1.6;
+  }
+  .tag.aus{background:var(--aus-bg); color:var(--aus);}
+  .tag.ca{background:var(--ca-bg); color:var(--ca);}
+  .tag.all{background:var(--all-bg); color:var(--all);}
+  .tag.dept{background:var(--all-bg); color:var(--ink-soft); font-weight:500;}
+
+  .timing{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    color:var(--ink-soft);
+  }
+
+  .task-note{
+    font-size:12.5px;
+    color:var(--ink-soft);
+    margin-top:4px;
+    max-width:56ch;
+  }
+
+  .action{flex-shrink:0; display:flex; align-items:center; gap:6px;}
+  a.guide-link{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    text-decoration:none;
+    font-size:13px;
+    font-weight:600;
+    color:var(--go);
+    background:var(--go-bg);
+    padding:7px 12px;
+    border-radius:6px;
+    white-space:nowrap;
+  }
+  a.guide-link:hover{background:#d6e8dc;}
+  a.guide-link svg{width:12px;height:12px;flex-shrink:0;}
+
+  a.ref-link{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    text-decoration:none;
+    font-size:13px;
+    font-weight:600;
+    color:var(--ref);
+    background:var(--ref-bg);
+    padding:7px 12px;
+    border-radius:6px;
+    white-space:nowrap;
+  }
+  a.ref-link:hover{background:#dbe0ee;}
+
+  .no-guide{
+    font-size:12.5px;
+    color:var(--missing);
+    padding:7px 12px;
+    white-space:nowrap;
+  }
+
+  .add-row-btn{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    border:1px dashed var(--line);
+    background:transparent;
+    color:var(--ink-soft);
+    font-family:inherit;
+    font-size:13px;
+    font-weight:500;
+    padding:10px 14px;
+    border-radius:8px;
+    cursor:pointer;
+    width:100%;
+    justify-content:center;
+  }
+  .add-row-btn:hover{border-color:var(--ink-soft); color:var(--ink);}
+  .add-row-btn svg{width:13px;height:13px;}
+
+  .add-section-btn{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    border:1px solid var(--line);
+    background:var(--panel);
+    color:var(--ink);
+    font-family:inherit;
+    font-size:13.5px;
+    font-weight:600;
+    padding:10px 16px;
+    border-radius:8px;
+    cursor:pointer;
+    margin-top:6px;
+  }
+  .add-section-btn:hover{border-color:var(--ink-soft);}
+  .add-section-btn svg{width:14px;height:14px;}
+
+  .empty-state{
+    color:var(--ink-soft);
+    font-size:14px;
+    padding:30px 0;
+    display:none;
+  }
+  .empty-state.show{display:block;}
+
+  .placeholder{
+    border:1px dashed var(--line);
+    border-radius:10px;
+    background:var(--panel);
+    padding:36px 32px;
+    max-width:56ch;
+    margin-bottom:20px;
+  }
+  .placeholder h3{
+    margin:0 0 8px;
+    font-size:16px;
+  }
+  .placeholder p{
+    margin:0 0 14px;
+    color:var(--ink-soft);
+    font-size:14px;
+  }
+
+  /* ---------- Modal ---------- */
+  .modal-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(28,36,48,0.35);
+    display:none;
+    align-items:flex-start;
+    justify-content:center;
+    padding:60px 20px;
+    z-index:50;
+    overflow-y:auto;
+  }
+  .modal-overlay.show{display:flex;}
+  .modal{
+    background:var(--panel);
+    border-radius:10px;
+    width:100%;
+    max-width:480px;
+    padding:26px 26px 22px;
+    box-shadow:0 12px 40px rgba(20,24,32,.18);
+  }
+  .modal h3{
+    margin:0 0 18px;
+    font-size:17px;
+  }
+  .field{margin-bottom:14px;}
+  .field label{
+    display:block;
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--ink-soft);
+    margin-bottom:5px;
+  }
+  .field input[type="text"],
+  .field select,
+  .field textarea{
+    width:100%;
+    padding:9px 10px;
+    border:1px solid var(--line);
+    border-radius:6px;
+    font-family:inherit;
+    font-size:13.5px;
+    color:var(--ink);
+    background:var(--paper);
+  }
+  .field textarea{resize:vertical; min-height:52px;}
+  .field input:focus, .field select:focus, .field textarea:focus{
+    outline:2px solid var(--ink);
+    outline-offset:1px;
+  }
+  .field-row{display:flex; gap:10px;}
+  .field-row .field{flex:1;}
+
+  .modal-actions{
+    display:flex;
+    justify-content:flex-end;
+    gap:8px;
+    margin-top:20px;
+  }
+  .btn{
+    font-family:inherit;
+    font-size:13.5px;
+    font-weight:600;
+    padding:9px 16px;
+    border-radius:7px;
+    cursor:pointer;
+    border:1px solid var(--line);
+    background:var(--panel);
+    color:var(--ink);
+  }
+  .btn:hover{border-color:var(--ink-soft);}
+  .btn.primary{
+    background:var(--ink);
+    border-color:var(--ink);
+    color:#fff;
+  }
+  .btn.primary:hover{opacity:.9;}
+  .btn.danger{
+    background:var(--danger-bg);
+    border-color:var(--danger-bg);
+    color:var(--danger);
+  }
+
+  .toast{
+    position:fixed;
+    bottom:22px;
+    left:50%;
+    transform:translateX(-50%) translateY(0);
+    background:var(--ink);
+    color:#fff;
+    padding:10px 18px;
+    border-radius:20px;
+    font-size:13px;
+    font-weight:500;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .18s ease;
+    z-index:60;
+  }
+  .toast.show{opacity:1;}
+
+  @media (max-width:800px){
+    .shell{grid-template-columns:1fr;}
+    aside{
+      position:relative;
+      height:auto;
+      border-right:none;
+      border-bottom:1px solid var(--line);
+    }
+    nav.jump{display:none;}
+    main{padding:26px 18px 60px;}
+    .task-row{grid-template-columns:1fr;}
+    .action{justify-self:start;}
+    header.page-head{flex-direction:column;}
+  }
+
+  ::selection{background:#d4d0c2;}
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <aside>
+    <div class="brand">Process index</div>
+    <div class="brand-sub">Tasks matched to their Scribe walkthrough</div>
+
+    <div class="page-switch" id="pageSwitch">
+      <button class="page-tab active" data-page="onboarding">Onboarding</button>
+      <button class="page-tab" data-page="offboarding">Offboarding</button>
+      <button class="page-tab" data-page="campaign">Campaign change</button>
+    </div>
+
+    <div class="search-wrap">
+      <input type="text" id="searchInput" placeholder="Search a task…" autocomplete="off">
+    </div>
+
+    <div class="filter-group" id="sideFilters">
+      <div class="filter-label">Site</div>
+      <div class="filter-pills" id="sitePills">
+        <button class="pill active" data-site="all">All</button>
+        <button class="pill" data-site="aus">AUS</button>
+        <button class="pill" data-site="ca">CA</button>
+      </div>
+
+      <div class="filter-label" style="margin-top:14px;">Guide status</div>
+      <div class="filter-pills" id="statusPills">
+        <button class="pill active" data-status="all">All</button>
+        <button class="pill" data-status="has">Has guide</button>
+        <button class="pill" data-status="none">No guide</button>
+      </div>
+    </div>
+
+    <div class="filter-label" id="jumpLabel">Jump to section</div>
+    <nav class="jump" id="jumpNav"></nav>
+
+    <div class="stat-block" id="statBlock">Loading…</div>
+    <button class="side-action" id="resetBtn">Reset this page to defaults</button>
+  </aside>
+
+  <main>
+    <header class="page-head">
+      <div class="head-text">
+        <h1 id="pageTitle">Onboarding process — AUS &amp; CA</h1>
+        <p id="pageDesc">Every task from the master onboarding sheet, with its matching Scribe guide linked directly.</p>
+      </div>
+      <button class="edit-toggle" id="editToggle">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        <span id="editToggleLabel">Edit</span>
+      </button>
+    </header>
+
+    <div id="pageBody">Loading…</div>
+  </main>
+
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modalBox"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ Config ============ */
+const GUIDE = "guide", REF = "ref", NONE = "none";
+const STORAGE_PREFIX = "process-index:";
+
+const PAGE_META = {
+  onboarding: {
+    title: "Onboarding process — AUS &amp; CA",
+    desc: "Every task from the master onboarding sheet, with its matching Scribe guide linked directly. Filter by site or guide status, or search for a task by name."
+  },
+  offboarding: {
+    title: "Offboarding process — AUS &amp; CA",
+    desc: "Add the offboarding tasks and link each one to its Scribe guide."
+  },
+  campaign: {
+    title: "Campaign change process — AUS &amp; CA",
+    desc: "Add the campaign change tasks and link each one to its Scribe guide."
+  }
+};
+
+/* ============ Default seed data (onboarding only) ============ */
+const DEFAULT_ONBOARDING = [
+  { group: "Gmail", tasks: [
+    { name:"Create Gmail Account", site:"all", timing:"T-7d", kind:GUIDE,
+      url:"https://scribehow.com/o/JnwaXeaqQRm26xDabV1K_w/viewer/How_to_create_Google_Account_Add_to_groups_and_reset_password__c8htsFnKR36v4XqjzxF81w",
+      note:"Covered in the combined Gmail setup guide (steps 1–10)." },
+    { name:"Add to relevant Gmail Groups", site:"all", timing:"On dependency", kind:GUIDE,
+      url:"https://scribehow.com/o/JnwaXeaqQRm26xDabV1K_w/viewer/How_to_create_Google_Account_Add_to_groups_and_reset_password__c8htsFnKR36v4XqjzxF81w",
+      note:"Same guide, steps 11–15 — All staff, Salesteam, and role group." },
+    { name:"Add Gmail to Hibob", site:"all", timing:"On start date", kind:GUIDE,
+      url:"https://scribehow.com/viewer/Update_Hibob_email_to_work_email__yxW-NdzZQVCWptGt13xITw",
+      note:"Closest match — updating the work email field in Hibob." },
+    { name:"Email Signature", site:"all", timing:"T-2d", kind:GUIDE,
+      url:"https://scribehow.com/o/JnwaXeaqQRm26xDabV1K_w/viewer/Creating_Email_Signature__KB9jbhvJQGKWEPbqmlDbfA" },
+    { name:"Add Email Signature to Gmail", site:"all", timing:"On dependency", kind:GUIDE,
+      url:"https://scribehow.com/o/JnwaXeaqQRm26xDabV1K_w/viewer/Creating_Email_Signature__KB9jbhvJQGKWEPbqmlDbfA" },
+    { name:"Change Email Password to Default One", site:"all", timing:"On dependency", kind:GUIDE,
+      url:"https://scribehow.com/o/JnwaXeaqQRm26xDabV1K_w/viewer/How_to_create_Google_Account_Add_to_groups_and_reset_password__c8htsFnKR36v4XqjzxF81w",
+      note:"Same combined guide, steps 16–22 — reset flow." },
+    { name:"Email Gmail Password", site:"all", timing:"On dependency", kind:GUIDE,
+      url:"https://scribehow.com/viewer/Send_Payment_Plan_email_and_Gmail_Password__EoeZAvpnR7eQ_T5PK3Gm_w" },
+  ]},
+  { group: "Xero & Wagepoint", tasks: [
+    { name:"My Learning Online — Xero Login Access", site:"aus", timing:"On dependency", kind:NONE },
+    { name:"Check Work Email & Sync to Xero", site:"all", timing:"On dependency", kind:NONE },
+    { name:"Email TFN and Super to Hayley", site:"aus", timing:"On dependency", kind:NONE },
+    { name:"Check if Hayley has sent Xero Invites", site:"aus", timing:"On dependency", kind:NONE },
+    { name:"Send Payroll Reports to Hayley", site:"aus", timing:"On dependency", kind:NONE },
+    { name:"Fill in Wage Point report and send to Angus with TD1 forms", site:"ca", timing:"On start date", kind:NONE },
+    { name:"Check if Angus has completed Wage Point onboarding", site:"ca", timing:"On dependency", kind:NONE },
+    { name:"My Learning Online — Wage Point Login Access", site:"ca", timing:"On dependency", kind:NONE },
+  ]},
+  { group: "Salesforce & Vonage", tasks: [
+    { name:"Create Vonage Account", site:"all", dept:"Support & Student Services, Sales, Compliance", timing:"On dependency", kind:GUIDE,
+      url:"https://scribehow.com/o/JnwaXeaqQRm26xDabV1K_w/viewer/How_to_create_a_new_user_in_Vonage__2QvV6rEsTDWslMdAPeqMkw" },
+    { name:"Add to related inbound skills and groups", site:"all", timing:"On dependency", kind:NONE, note:"Remove Skills (Inbound Line)." },
+    { name:"Create Salesforce Account (include Vonage details)", site:"all", timing:"On dependency", kind:GUIDE,
+      url:"https://scribehow.com/o/JnwaXeaqQRm26xDabV1K_w/viewer/How_to_create_a_new_user_on_Salesforce__AqHb9UipRrqkiYtBKjpCvQ" },
+    { name:"Assign Permission Sets", site:"all", timing:"On dependency", kind:NONE, note:"NCT APEX." },
+    { name:"Add to Public Groups", site:"all", timing:"On dependency", kind:NONE },
+    { name:"Add Distribution Engine License", site:"all", dept:"Support & Student Services, Sales, Compliance", timing:"On dependency", kind:NONE },
+    { name:"Add to DE Teams and Apply Out of Office", site:"all", timing:"On dependency", kind:NONE, note:"Change out of office to 1 year." },
+    { name:"Add Dial Lists for Vonage System", site:"all", timing:"On dependency", kind:NONE, note:"Lists 1–5: brand, funding, callback, QFC2." },
+    { name:"Add to Dial Lists — Callback and QFC2 only", site:"all", timing:"On dependency", kind:NONE },
+    { name:"Add SMS Magic Power License", site:"all", timing:"On dependency", kind:NONE },
+    { name:"Assign SMS Sender ID", site:"all", timing:"On dependency", kind:NONE },
+  ]},
+  { group: "Payment plans & other accounts", tasks: [
+    { name:"Stripe Payment Plan", site:"all", dept:"Finance, Operations, Sales", timing:"T-1d", kind:GUIDE,
+      url:"https://scribehow.com/viewer/Stripe_Payment_Plan_Process__TWvOo2AZTdeuqR64_QsZmw" },
+    { name:"Payright Payment Plan", site:"aus", dept:"Finance, Operations, Sales", timing:"T-1d", kind:GUIDE,
+      url:"https://scribehow.com/viewer/Payright_Payment_Plan_Process__c8cOrwvNQk6Dn1GIN24E5w", note:"Uses Prapta's number." },
+    { name:"Elevant Payment Plan", site:"aus", timing:"T-1d", kind:GUIDE,
+      url:"https://scribehow.com/viewer/Create_a_Merchant_User_and_Assign_Permissions__8s-4PMwMSAWQQkL6b7I21g", note:"Uses Prapta's number." },
+    { name:"IFinance Payment Plans", site:"ca", dept:"Finance, Operations, Sales", timing:"T-1d", kind:GUIDE,
+      url:"https://scribehow.com/viewer/IFinance_Payment_Plan_Process__n1oQz3R2R_yXMgBj8sLxLQ" },
+    { name:"Affirm Payment Plan", site:"ca", dept:"Finance, Operations, Sales", timing:"T-1d", kind:GUIDE,
+      url:"https://scribehow.com/viewer/Affirm_Payment_Plan_Process__zEOmGFAhTJiGqxI1T-p02Q" },
+    { name:"Send Payment Plan email", site:"all", dept:"Sales", timing:"T-1d", kind:GUIDE,
+      url:"https://scribehow.com/viewer/Send_Payment_Plan_email_and_Gmail_Password__EoeZAvpnR7eQ_T5PK3Gm_w" },
+    { name:"Create Lumin Account", site:"all", dept:"Sales", timing:"T-1d", kind:NONE },
+    { name:"Invite New User to Slack", site:"all", timing:"T-1d", kind:GUIDE,
+      url:"https://scribehow.com/viewer/How_to_Invite_People_to_Your_Workspace___mnxKa9yTw2-uzTV5lHerg" },
+    { name:"Add to Training Dashboard", site:"all", timing:"T-1d", kind:GUIDE,
+      url:"https://scribehow.com/o/JnwaXeaqQRm26xDabV1K_w/viewer/How_to_add_people_to_the_LO_Portal_and_the_Induction_Dashboard__HD80SF8pSPaOqmuuOODhaQ",
+      note:"Include in Payment Plan email." },
+    { name:"Remove from Training Dashboard", site:"all", timing:"+35d", kind:GUIDE,
+      url:"https://scribehow.com/o/JnwaXeaqQRm26xDabV1K_w/viewer/How_to_add_people_to_the_LO_Portal_and_the_Induction_Dashboard__HD80SF8pSPaOqmuuOODhaQ" },
+    { name:"Set up TELUS Health One profile", site:"ca", timing:"+180d", kind:NONE },
+    { name:"Honeybee Administration", site:"ca", timing:"+3d", kind:GUIDE,
+      url:"https://scribehow.com/viewer/Add_new_employee_to_Honeybee__hE4oDPx_QeurMrTbspSPzg" },
+    { name:"Add to Bright HR", site:"ca", timing:"T-1d", kind:NONE },
+    { name:"Add to LO Portal", site:"all", timing:"T-1d", kind:GUIDE,
+      url:"https://scribehow.com/o/JnwaXeaqQRm26xDabV1K_w/viewer/How_to_add_people_to_the_LO_Portal_and_the_Induction_Dashboard__HD80SF8pSPaOqmuuOODhaQ" },
+    { name:"Add to department-specific dashboards on LO Portal", site:"all", timing:"T-1d", kind:GUIDE,
+      url:"https://scribehow.com/o/JnwaXeaqQRm26xDabV1K_w/viewer/How_to_add_people_to_the_LO_Portal_and_the_Induction_Dashboard__HD80SF8pSPaOqmuuOODhaQ" },
+  ]},
+  { group: "First day tasks", tasks: [
+    { name:"Confirm Employee 1st Day", site:"aus", timing:"On start date", kind:NONE },
+    { name:"Employee First Day Confirmed", site:"all", timing:"On dependency", kind:NONE },
+    { name:"Confirm Employee First Day — Canada", site:"ca", timing:"On start date", kind:NONE },
+  ]},
+  { group: "Equipment tasks", tasks: [
+    { name:"Order a New Laptop for New Starter", site:"all", dept:"Non-Sales", timing:"T-5d", kind:NONE },
+    { name:"Set Up Company Equipment and Assets", site:"all", dept:"Sales, non-CA", timing:"T-1d", kind:NONE },
+    { name:"Setup OH&S Induction meeting", site:"all", dept:"Non-CA", timing:"T-1d", kind:REF,
+      url:"https://docs.google.com/document/d/1pvxlHrZzUP4U-nbDlBqv0lLTqXEyD63eyG9UbQr6DJw/edit?tab=t.0#heading=h.cdgl7rjewp0v",
+      note:"Google Doc rundown, not a Scribe. Book for 2:30pm induction day, cc TL and Prapta, then sign the OH&S acknowledgment in Hibob." },
+  ]},
+  { group: "HR & document tasks", tasks: [
+    { name:"Probation End Date", site:"all", timing:"+180d", kind:NONE },
+    { name:"Add start date to performance review date", site:"all", timing:"T-1d", kind:GUIDE,
+      url:"https://scribehow.com/viewer/Update_Last_Annual_Review_Date__8QNADiXZQmS8dneWpEwlcg" },
+    { name:"Update all systems in Hibob", site:"all", timing:"T-1d", kind:GUIDE,
+      url:"https://scribehow.com/o/JnwaXeaqQRm26xDabV1K_w/viewer/How_to_change_SSO_to_Yes_and_Update_all_Systems_in_Hobob__eRdWej1JRFyZULKx3y2byQ" },
+    { name:"Change SSO to Yes", site:"all", timing:"On dependency", kind:GUIDE,
+      url:"https://scribehow.com/o/JnwaXeaqQRm26xDabV1K_w/viewer/How_to_change_SSO_to_Yes_and_Update_all_Systems_in_Hobob__eRdWej1JRFyZULKx3y2byQ" },
+    { name:"Record Salesforce Alias", site:"all", timing:"On dependency", kind:NONE },
+    { name:"Record VCC Agent ID to Hibob", site:"all", dept:"Support & Student Services, Sales, Compliance", timing:"On dependency", kind:NONE },
+    { name:"Set Employee ID", site:"all", timing:"T-2d", kind:GUIDE,
+      url:"https://scribehow.com/o/JnwaXeaqQRm26xDabV1K_w/viewer/How_to_create_and_add_Employee_ID_Numbers_in_Hibob__WYXbC9H-RJSCT2isRCB_tA" },
+  ]},
+  { group: "Work eligibility tasks", tasks: [
+    { name:"Upload VEVO Visa PDF / Passport Copy", site:"all", dept:"Temporary visa holders", timing:"T-5d", kind:NONE },
+    { name:"Verify handbook and contract has been signed", site:"all", timing:"T-1d", kind:NONE },
+    { name:"Enter Visa Details into Hibob", site:"all", timing:"On dependency", kind:NONE },
+  ]},
+  { group: "Printing tasks", tasks: [
+    { name:"Printing Name Tags", site:"aus", dept:"Non-CA", timing:"T-4d", kind:GUIDE,
+      url:"https://scribehow.com/viewer/How_to_Make_and_Print_Name_Tags__YrA_U5BOReWAeRD483t00A" },
+    { name:"Printing Sales Scripts — MLO", site:"aus", dept:"Senior Course Consultant, Course Consultant", timing:"T-4d", kind:REF,
+      url:"https://docs.google.com/spreadsheets/d/1vSd7amV81GL1FniY7pQp25awM9oZYsbieaV1benw1FQ/edit?usp=sharing",
+      note:"Google Sheet, not a Scribe. Print everything marked * in order, top to bottom." },
+    { name:"Printing Sales Scripts — ABS", site:"aus", dept:"Senior Course Consultant, Course Consultant", timing:"T-4d", kind:REF,
+      url:"https://docs.google.com/spreadsheets/d/1MXSdR8AjL1AhvkocT-9G9o9msdT4rIPI9q_CScephBM/edit?gid=162425148#gid=162425148",
+      note:"Google Sheet, not a Scribe. Print everything marked * in order, top to bottom." },
+  ]},
+  { group: "Other reference guides", tasks: [
+    { name:"How to Import Bookmarks in Google Chrome", site:"all", timing:"Reference", kind:GUIDE,
+      url:"https://scribehow.com/o/JnwaXeaqQRm26xDabV1K_w/viewer/How_To_Import_Bookmarks_In_Google_Chrome__an3eONQDSu6aUN2XTSHAuA",
+      note:"Not tied to a single sheet row — supports the 'Bookmarks' setup note." },
+    { name:"How to add someone to the Stripe Portal", site:"all", timing:"Reference", kind:GUIDE,
+      url:"https://scribehow.com/o/JnwaXeaqQRm26xDabV1K_w/viewer/How_to_add_someone_to_the_Stripe_Portal___O6CDnvcSru4z_KstHHmsg",
+      note:"Not tied to a single sheet row — supports the 'Stripe Tool tasks' note." },
+  ]},
+];
+
+const DEFAULTS = { onboarding: DEFAULT_ONBOARDING, offboarding: [], campaign: [] };
+
+/* ============ State ============ */
+let state = {
+  currentPage: "onboarding",
+  editMode: false,
+  data: { onboarding: null, offboarding: null, campaign: null },
+  filters: { site: "all", status: "all", search: "" }
+};
+let idCounter = 1;
+function nextId(){ return "t" + (idCounter++) + "_" + Date.now().toString(36); }
+
+/* ============ Storage helpers (shared backend via Netlify Function) ============ */
+const API_BASE = "/api/data";
+
+async function loadPage(pageKey){
+  try{
+    const res = await fetch(`${API_BASE}?page=${encodeURIComponent(pageKey)}`);
+    if(!res.ok) throw new Error("Bad response " + res.status);
+    const body = await res.json();
+    if(body && body.value){
+      return body.value;
+    }
+  }catch(e){
+    console.error("Load failed, falling back to defaults", e);
+  }
+  const seed = JSON.parse(JSON.stringify(DEFAULTS[pageKey] || []));
+  await savePage(pageKey, seed);
+  return seed;
+}
+
+async function savePage(pageKey, groups){
+  try{
+    const res = await fetch(`${API_BASE}?page=${encodeURIComponent(pageKey)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ groups })
+    });
+    if(!res.ok) throw new Error("Bad response " + res.status);
+    return true;
+  }catch(e){
+    console.error("Save failed", e);
+    showToast("Could not save — check your connection and try again.");
+    return false;
+  }
+}
+
+async function persistCurrent(){
+  const ok = await savePage(state.currentPage, state.data[state.currentPage]);
+  if(ok) showToast("Saved");
+  renderPage();
+}
+
+/* ============ Toast ============ */
+let toastTimer;
+function showToast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.classList.remove('show'), 1800);
+}
+
+/* ============ Rendering helpers ============ */
+function slug(s){ return s.toLowerCase().replace(/[^a-z0-9]+/g,'-'); }
+
+function siteTag(site){
+  if(site==='aus') return '<span class="tag aus">AUS only</span>';
+  if(site==='ca') return '<span class="tag ca">CA only</span>';
+  return '<span class="tag all">All company</span>';
+}
+
+function escapeHtml(str){
+  return (str || "").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+function actionHTML(t){
+  const parts = [];
+  if(t.kind===GUIDE){
+    parts.push(`<a class="guide-link" href="${escapeHtml(t.url)}" target="_blank" rel="noopener">Open guide
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+    </a>`);
+  } else if(t.kind===REF){
+    parts.push(`<a class="ref-link" href="${escapeHtml(t.url)}" target="_blank" rel="noopener">Open reference
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+    </a>`);
+  } else {
+    parts.push(`<span class="no-guide">No guide yet</span>`);
+  }
+  if(state.editMode){
+    parts.push(`<button class="icon-btn" data-edit-task="${t.id}" title="Edit task">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+    </button>`);
+    parts.push(`<button class="icon-btn danger" data-delete-task="${t.id}" title="Delete task">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>
+    </button>`);
+  }
+  return parts.join('');
+}
+
+function renderPage(){
+  const pageKey = state.currentPage;
+  const groups = state.data[pageKey] || [];
+  const meta = PAGE_META[pageKey];
+  document.getElementById('pageTitle').innerHTML = meta.title;
+  document.getElementById('pageDesc').textContent = meta.desc;
+
+  const editBtn = document.getElementById('editToggle');
+  editBtn.classList.toggle('active', state.editMode);
+  document.getElementById('editToggleLabel').textContent = state.editMode ? "Done editing" : "Edit";
+
+  const body = document.getElementById('pageBody');
+  const jumpNav = document.getElementById('jumpNav');
+  jumpNav.innerHTML = '';
+
+  let totalTasks = 0, totalGuides = 0;
+
+  let html = '';
+
+  if(groups.length === 0){
+    html += `<div class="placeholder">
+      <h3>Nothing here yet</h3>
+      <p>${state.editMode ? "Add a section below to start building this out." : "Click Edit, then add a section, to start building this out."}</p>
+    </div>`;
+  }
+
+  groups.forEach((group, gIdx)=>{
+    const gId = slug(group.group) + '-' + gIdx;
+    html += `<section class="group" id="${gId}">
+      <div class="group-head">
+        <h2>${escapeHtml(group.group)}</h2>
+        <div class="group-tools ${state.editMode ? 'show' : ''}">
+          <button class="icon-btn" data-rename-group="${gIdx}" title="Rename section">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          </button>
+          <button class="icon-btn danger" data-delete-group="${gIdx}" title="Delete section">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>
+          </button>
+        </div>
+      </div>`;
+
+    group.tasks.forEach(t=>{
+      totalTasks++;
+      if(t.kind===GUIDE || t.kind===REF) totalGuides++;
+      html += `<div class="task-row" data-site="${t.site}" data-status="${t.kind==='none'?'none':'has'}" data-search="${escapeHtml(t.name.toLowerCase())}">
+        <div class="task-main">
+          <div class="task-name">${escapeHtml(t.name)}</div>
+          <div class="task-meta">
+            ${siteTag(t.site)}
+            ${t.dept ? `<span class="tag dept">${escapeHtml(t.dept)}</span>` : ''}
+            ${t.timing ? `<span class="timing">${escapeHtml(t.timing)}</span>` : ''}
+          </div>
+          ${t.note ? `<div class="task-note">${escapeHtml(t.note)}</div>` : ''}
+        </div>
+        <div class="action">${actionHTML(t)}</div>
+      </div>`;
+    });
+
+    if(state.editMode){
+      html += `<button class="add-row-btn" data-add-task="${gIdx}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        Add task
+      </button>`;
+    }
+
+    html += `</section>`;
+
+    jumpNav.innerHTML += `<a href="#${gId}">${escapeHtml(group.group)} <span class="count">${group.tasks.length}</span></a>`;
+  });
+
+  if(state.editMode){
+    html += `<button class="add-section-btn" id="addSectionBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      Add section
+    </button>`;
+  }
+
+  html += `<p class="empty-state" id="emptyState">No tasks match that search.</p>`;
+
+  body.innerHTML = html;
+  document.getElementById('statBlock').innerHTML = `<b>${totalGuides}</b> of <b>${totalTasks}</b> tasks link to a guide`;
+
+  applyFilters();
+  wireDynamicButtons();
+}
+
+function applyFilters(){
+  const rows = document.querySelectorAll('.task-row');
+  let visible = 0;
+  rows.forEach(row=>{
+    const siteOK = state.filters.site==='all' || row.dataset.site===state.filters.site || row.dataset.site==='all';
+    const statusOK = state.filters.status==='all' || row.dataset.status===state.filters.status;
+    const searchOK = state.filters.search==='' || row.dataset.search.includes(state.filters.search);
+    const show = siteOK && statusOK && searchOK;
+    row.classList.toggle('hidden', !show);
+    if(show) visible++;
+  });
+  document.querySelectorAll('section.group').forEach(section=>{
+    const anyVisible = [...section.querySelectorAll('.task-row')].some(r=>!r.classList.contains('hidden'));
+    section.style.display = anyVisible ? '' : 'none';
+  });
+  const empty = document.getElementById('emptyState');
+  if(empty) empty.classList.toggle('show', visible===0 && rows.length>0);
+}
+
+/* ============ Dynamic button wiring (rebuilt each render) ============ */
+function wireDynamicButtons(){
+  document.querySelectorAll('[data-edit-task]').forEach(btn=>{
+    btn.addEventListener('click', ()=>openTaskModal(findTaskLocation(btn.dataset.editTask)));
+  });
+  document.querySelectorAll('[data-delete-task]').forEach(btn=>{
+    btn.addEventListener('click', ()=>deleteTask(btn.dataset.deleteTask));
+  });
+  document.querySelectorAll('[data-add-task]').forEach(btn=>{
+    btn.addEventListener('click', ()=>openTaskModal({ groupIdx:+btn.dataset.addTask, taskIdx:-1 }));
+  });
+  document.querySelectorAll('[data-rename-group]').forEach(btn=>{
+    btn.addEventListener('click', ()=>openGroupModal(+btn.dataset.renameGroup));
+  });
+  document.querySelectorAll('[data-delete-group]').forEach(btn=>{
+    btn.addEventListener('click', ()=>deleteGroup(+btn.dataset.deleteGroup));
+  });
+  const addSectionBtn = document.getElementById('addSectionBtn');
+  if(addSectionBtn) addSectionBtn.addEventListener('click', ()=>openGroupModal(-1));
+}
+
+function findTaskLocation(taskId){
+  const groups = state.data[state.currentPage];
+  for(let gIdx=0; gIdx<groups.length; gIdx++){
+    const tIdx = groups[gIdx].tasks.findIndex(t=>t.id===taskId);
+    if(tIdx>-1) return { groupIdx:gIdx, taskIdx:tIdx };
+  }
+  return null;
+}
+
+async function deleteTask(taskId){
+  const loc = findTaskLocation(taskId);
+  if(!loc) return;
+  if(!confirm("Delete this task?")) return;
+  state.data[state.currentPage][loc.groupIdx].tasks.splice(loc.taskIdx, 1);
+  await persistCurrent();
+}
+
+async function deleteGroup(gIdx){
+  const group = state.data[state.currentPage][gIdx];
+  const msg = group.tasks.length
+    ? `Delete "${group.group}" and its ${group.tasks.length} task(s)?`
+    : `Delete "${group.group}"?`;
+  if(!confirm(msg)) return;
+  state.data[state.currentPage].splice(gIdx, 1);
+  await persistCurrent();
+}
+
+/* ============ Modals ============ */
+function closeModal(){
+  document.getElementById('modalOverlay').classList.remove('show');
+  document.getElementById('modalBox').innerHTML = '';
+}
+
+function openGroupModal(gIdx){
+  const isNew = gIdx === -1;
+  const existingName = isNew ? '' : state.data[state.currentPage][gIdx].group;
+  const box = document.getElementById('modalBox');
+  box.innerHTML = `
+    <h3>${isNew ? 'Add section' : 'Rename section'}</h3>
+    <div class="field">
+      <label for="groupNameInput">Section name</label>
+      <input type="text" id="groupNameInput" value="${escapeHtml(existingName)}" placeholder="e.g. Equipment tasks">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="modalCancel">Cancel</button>
+      <button class="btn primary" id="modalSave">${isNew ? 'Add section' : 'Save'}</button>
+    </div>
+  `;
+  document.getElementById('modalOverlay').classList.add('show');
+  document.getElementById('groupNameInput').focus();
+  document.getElementById('modalCancel').addEventListener('click', closeModal);
+  document.getElementById('modalSave').addEventListener('click', async ()=>{
+    const name = document.getElementById('groupNameInput').value.trim();
+    if(!name) return;
+    if(isNew){
+      state.data[state.currentPage].push({ group:name, tasks:[] });
+    } else {
+      state.data[state.currentPage][gIdx].group = name;
+    }
+    closeModal();
+    await persistCurrent();
+  });
+}
+
+function openTaskModal(loc){
+  const isNew = loc.taskIdx === -1;
+  const groups = state.data[state.currentPage];
+  const existing = isNew ? {} : groups[loc.groupIdx].tasks[loc.taskIdx];
+
+  const box = document.getElementById('modalBox');
+  box.innerHTML = `
+    <h3>${isNew ? 'Add task' : 'Edit task'}</h3>
+    <div class="field">
+      <label for="fName">Task name</label>
+      <input type="text" id="fName" value="${escapeHtml(existing.name || '')}" placeholder="e.g. Create Gmail Account">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="fSite">Site</label>
+        <select id="fSite">
+          <option value="all" ${existing.site==='all'||!existing.site?'selected':''}>All company</option>
+          <option value="aus" ${existing.site==='aus'?'selected':''}>AUS only</option>
+          <option value="ca" ${existing.site==='ca'?'selected':''}>CA only</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="fTiming">Timing</label>
+        <input type="text" id="fTiming" value="${escapeHtml(existing.timing || '')}" placeholder="e.g. T-7d">
+      </div>
+    </div>
+    <div class="field">
+      <label for="fDept">Department / condition (optional)</label>
+      <input type="text" id="fDept" value="${escapeHtml(existing.dept || '')}" placeholder="e.g. Sales, Finance">
+    </div>
+    <div class="field">
+      <label for="fKind">Guide status</label>
+      <select id="fKind">
+        <option value="guide" ${existing.kind==='guide'?'selected':''}>Has a Scribe guide</option>
+        <option value="ref" ${existing.kind==='ref'?'selected':''}>Has a reference link (doc/sheet)</option>
+        <option value="none" ${(!existing.kind || existing.kind==='none')?'selected':''}>No guide yet</option>
+      </select>
+    </div>
+    <div class="field" id="urlField" style="display:${existing.kind==='none'||!existing.kind ? (isNew?'none':'none') : 'block'};">
+      <label for="fUrl">Link URL</label>
+      <input type="text" id="fUrl" value="${escapeHtml(existing.url || '')}" placeholder="https://scribehow.com/...">
+    </div>
+    <div class="field">
+      <label for="fNote">Note (optional)</label>
+      <textarea id="fNote" placeholder="Any extra context...">${escapeHtml(existing.note || '')}</textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="modalCancel">Cancel</button>
+      <button class="btn primary" id="modalSave">${isNew ? 'Add task' : 'Save'}</button>
+    </div>
+  `;
+  document.getElementById('modalOverlay').classList.add('show');
+  document.getElementById('fName').focus();
+
+  const kindSelect = document.getElementById('fKind');
+  const urlField = document.getElementById('urlField');
+  function syncUrlVisibility(){
+    urlField.style.display = kindSelect.value === 'none' ? 'none' : 'block';
+  }
+  syncUrlVisibility();
+  kindSelect.addEventListener('change', syncUrlVisibility);
+
+  document.getElementById('modalCancel').addEventListener('click', closeModal);
+  document.getElementById('modalSave').addEventListener('click', async ()=>{
+    const name = document.getElementById('fName').value.trim();
+    if(!name){ document.getElementById('fName').focus(); return; }
+    const kind = kindSelect.value;
+    const url = document.getElementById('fUrl').value.trim();
+    if(kind !== 'none' && !url){ document.getElementById('fUrl').focus(); return; }
+
+    const taskObj = {
+      id: existing.id || nextId(),
+      name,
+      site: document.getElementById('fSite').value,
+      timing: document.getElementById('fTiming').value.trim(),
+      dept: document.getElementById('fDept').value.trim(),
+      kind,
+      url: kind === 'none' ? '' : url,
+      note: document.getElementById('fNote').value.trim(),
+    };
+
+    if(isNew){
+      groups[loc.groupIdx].tasks.push(taskObj);
+    } else {
+      groups[loc.groupIdx].tasks[loc.taskIdx] = taskObj;
+    }
+    closeModal();
+    await persistCurrent();
+  });
+}
+
+/* ============ Wiring: static controls ============ */
+document.getElementById('modalOverlay').addEventListener('click', e=>{
+  if(e.target.id === 'modalOverlay') closeModal();
+});
+
+document.getElementById('editToggle').addEventListener('click', ()=>{
+  state.editMode = !state.editMode;
+  renderPage();
+});
+
+document.getElementById('sitePills').addEventListener('click', e=>{
+  const btn = e.target.closest('.pill');
+  if(!btn) return;
+  document.querySelectorAll('#sitePills .pill').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  state.filters.site = btn.dataset.site;
+  applyFilters();
+});
+
+document.getElementById('statusPills').addEventListener('click', e=>{
+  const btn = e.target.closest('.pill');
+  if(!btn) return;
+  document.querySelectorAll('#statusPills .pill').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  state.filters.status = btn.dataset.status;
+  applyFilters();
+});
+
+document.getElementById('searchInput').addEventListener('input', e=>{
+  state.filters.search = e.target.value.toLowerCase().trim();
+  applyFilters();
+});
+
+document.getElementById('resetBtn').addEventListener('click', async ()=>{
+  const pageKey = state.currentPage;
+  if(!confirm(`Reset "${pageKey}" back to its default tasks? This clears any edits you've made on this page.`)) return;
+  const seed = JSON.parse(JSON.stringify(DEFAULTS[pageKey] || []));
+  state.data[pageKey] = seed;
+  await savePage(pageKey, seed);
+  showToast("Reset to defaults");
+  renderPage();
+});
+
+document.getElementById('pageSwitch').addEventListener('click', async e=>{
+  const btn = e.target.closest('.page-tab');
+  if(!btn) return;
+  const page = btn.dataset.page;
+  if(page === state.currentPage) return;
+
+  document.querySelectorAll('.page-tab').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+
+  state.currentPage = page;
+  state.filters = { site:"all", status:"all", search:"" };
+  document.getElementById('searchInput').value = '';
+  document.querySelectorAll('#sitePills .pill').forEach(p=>p.classList.toggle('active', p.dataset.site==='all'));
+  document.querySelectorAll('#statusPills .pill').forEach(p=>p.classList.toggle('active', p.dataset.status==='all'));
+
+  if(state.data[page] === null){
+    document.getElementById('pageBody').innerHTML = 'Loading…';
+    state.data[page] = await loadPage(page);
+  }
+  renderPage();
+});
+
+/* ============ Init ============ */
+(async function init(){
+  try{
+    state.data.onboarding = await loadPage('onboarding');
+    renderPage();
+    // preload the other two in the background so switching feels instant
+    loadPage('offboarding').then(d=>{ if(state.data.offboarding===null) state.data.offboarding = d; });
+    loadPage('campaign').then(d=>{ if(state.data.campaign===null) state.data.campaign = d; });
+  }catch(e){
+    console.error(e);
+    document.getElementById('pageBody').innerHTML = '<div class="placeholder"><h3>Could not load saved data</h3><p>Try refreshing the page.</p></div>';
+  }
+})();
+</script>
+
+</body>
+</html>
