@@ -612,7 +612,12 @@
   <main>
     <header class="page-head">
       <div class="head-text">
-        <h1 id="pageTitle">Onboarding process — AUS &amp; CA</h1>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <h1 id="pageTitle">Onboarding process — AUS &amp; CA</h1>
+          <button class="icon-btn" id="editHeadingBtn" title="Edit heading" style="display:none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          </button>
+        </div>
         <p id="pageDesc">Every task from the master onboarding sheet, with its matching Scribe guide linked directly.</p>
       </div>
       <button class="edit-toggle" id="editToggle">
@@ -653,10 +658,10 @@ const CUSTOM_DESCRIPTIONS = {
   onboarding: "Every task from the master onboarding sheet, with its matching Scribe guide linked directly. Filter by site or guide status, or search for a task by name.",
 };
 
-function getPageMeta(key, name){
+function getPageMeta(entry){
   return {
-    title: `${escapeHtml(name)} process — AUS &amp; CA`,
-    desc: CUSTOM_DESCRIPTIONS[key] || `Every task for ${name}, matched to its Scribe guide.`,
+    title: entry.title ? escapeHtml(entry.title) : `${escapeHtml(entry.name)} process — AUS &amp; CA`,
+    desc: entry.desc || CUSTOM_DESCRIPTIONS[entry.key] || `Every task for ${entry.name}, matched to its Scribe guide.`,
   };
 }
 
@@ -940,7 +945,7 @@ function renderPage(){
   const pageKey = state.currentPage;
   const groups = state.data[pageKey] || [];
   const pageEntry = state.pageList.find(p => p.key === pageKey) || { key: pageKey, name: pageKey };
-  const meta = getPageMeta(pageEntry.key, pageEntry.name);
+  const meta = getPageMeta(pageEntry);
   document.getElementById('pageTitle').innerHTML = meta.title;
   document.getElementById('pageDesc').textContent = meta.desc;
 
@@ -949,6 +954,9 @@ function renderPage(){
   const editBtn = document.getElementById('editToggle');
   editBtn.classList.toggle('active', state.editMode);
   document.getElementById('editToggleLabel').textContent = state.editMode ? "Done editing" : "Edit";
+
+  const editHeadingBtn = document.getElementById('editHeadingBtn');
+  editHeadingBtn.style.display = state.editMode ? 'inline-flex' : 'none';
 
   const body = document.getElementById('pageBody');
   const jumpNav = document.getElementById('jumpNav');
@@ -1282,6 +1290,56 @@ document.getElementById('editToggle').addEventListener('click', ()=>{
   state.editMode = !state.editMode;
   renderPage();
 });
+
+document.getElementById('editHeadingBtn').addEventListener('click', openHeadingModal);
+
+function openHeadingModal(){
+  const pageEntry = state.pageList.find(p => p.key === state.currentPage);
+  if(!pageEntry) return;
+  const meta = getPageMeta(pageEntry);
+  // meta.title may contain an escaped &amp; from auto-generation — decode for editing
+  const plainTitle = pageEntry.title || meta.title.replace(/&amp;/g, '&');
+
+  const box = document.getElementById('modalBox');
+  box.innerHTML = `
+    <h3>Edit page heading</h3>
+    <div class="field">
+      <label for="fHeadTitle">Title</label>
+      <input type="text" id="fHeadTitle" value="${escapeHtml(plainTitle)}" placeholder="e.g. Onboarding process — AUS & CA">
+    </div>
+    <div class="field">
+      <label for="fHeadDesc">Description</label>
+      <textarea id="fHeadDesc" placeholder="Shown under the title">${escapeHtml(meta.desc)}</textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="modalResetHeading">Reset to default</button>
+      <button class="btn" id="modalCancel">Cancel</button>
+      <button class="btn primary" id="modalSave">Save</button>
+    </div>
+  `;
+  document.getElementById('modalOverlay').classList.add('show');
+  document.getElementById('fHeadTitle').focus();
+
+  document.getElementById('modalCancel').addEventListener('click', closeModal);
+  document.getElementById('modalResetHeading').addEventListener('click', async ()=>{
+    delete pageEntry.title;
+    delete pageEntry.desc;
+    await savePage(PAGELIST_KEY, state.pageList);
+    closeModal();
+    renderPage();
+    showToast("Reset to default heading");
+  });
+  document.getElementById('modalSave').addEventListener('click', async ()=>{
+    const title = document.getElementById('fHeadTitle').value.trim();
+    const desc = document.getElementById('fHeadDesc').value.trim();
+    if(title) pageEntry.title = title; else delete pageEntry.title;
+    if(desc) pageEntry.desc = desc; else delete pageEntry.desc;
+    await savePage(PAGELIST_KEY, state.pageList);
+    closeModal();
+    renderPage();
+    showToast("Saved");
+  });
+}
 
 document.getElementById('sitePills').addEventListener('click', e=>{
   const btn = e.target.closest('.pill');
