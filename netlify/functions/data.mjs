@@ -13,7 +13,7 @@ export default async (req) => {
     });
   }
 
-  const store = getStore("process-index");
+  const store = getStore({ name: "process-index", consistency: "strong" });
 
   if (req.method === "GET") {
     const value = await store.get(page, { type: "json" });
