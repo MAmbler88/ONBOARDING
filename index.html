@@ -755,7 +755,7 @@ let idCounter = 1;
 function nextId(){ return "t" + (idCounter++) + "_" + Date.now().toString(36); }
 
 /* ============ Storage helpers (shared backend via Netlify Function) ============ */
-const API_BASE = "/api/data";
+const API_BASE = "/.netlify/functions/data";
 
 async function loadPage(pageKey){
   try{
