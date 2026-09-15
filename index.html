@@ -944,7 +944,8 @@ function applyFilters(){
     if(show) visible++;
   });
   document.querySelectorAll('section.group').forEach(section=>{
-    const anyVisible = [...section.querySelectorAll('.task-row')].some(r=>!r.classList.contains('hidden'));
+    const taskRows = section.querySelectorAll('.task-row');
+    const anyVisible = taskRows.length === 0 || [...taskRows].some(r=>!r.classList.contains('hidden'));
     section.style.display = anyVisible ? '' : 'none';
   });
   const empty = document.getElementById('emptyState');
