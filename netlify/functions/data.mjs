@@ -48,7 +48,3 @@ export default async (req) => {
 
   return new Response("Method not allowed", { status: 405 });
 };
-
-export const config = {
-  path: "/api/data",
-};
