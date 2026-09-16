@@ -904,11 +904,33 @@ function renderSitePills(){
   container.innerHTML = html;
 }
 
+const TAG_COLOR_PALETTE = [
+  { text: "#6E325D", bg: "#F0EAEE" }, // muted purple
+  { text: "#356E7F", bg: "#EAEFF1" }, // muted blue
+  { text: "#4B7963", bg: "#EBEFED" }, // muted teal
+  { text: "#627A41", bg: "#EEF0EB" }, // muted lime
+  { text: "#B2682E", bg: "#F2EDE8" }, // muted amber
+];
+
+function colorForValue(value){
+  const str = String(value || "");
+  let hash = 0;
+  for(let i=0; i<str.length; i++){
+    hash = (hash * 31 + str.charCodeAt(i)) | 0;
+  }
+  return TAG_COLOR_PALETTE[Math.abs(hash) % TAG_COLOR_PALETTE.length];
+}
+
+function colorTag(label, value, prefix){
+  const c = colorForValue(value);
+  return `<span class="tag" style="background:${c.bg}; color:${c.text}; font-weight:500;"><b>${prefix}:</b> ${escapeHtml(label)}</span>`;
+}
+
 function siteTag(site){
   if(!site || site === 'all') return '<span class="tag all"><b>Site:</b> All company</span>';
   const entry = (state.siteList||[]).find(s => s.key === site);
   const label = entry ? entry.name : site;
-  return `<span class="tag site"><b>Site:</b> ${escapeHtml(label)}</span>`;
+  return colorTag(label, site, "Site");
 }
 
 function escapeHtml(str){
@@ -999,8 +1021,8 @@ function renderPage(){
           <div class="task-name">${escapeHtml(t.name)}</div>
           <div class="task-meta">
             ${siteTag(t.site)}
-            ${t.dept ? `<span class="tag dept"><b>Department:</b> ${escapeHtml(t.dept)}</span>` : ''}
-            ${t.assignee ? `<span class="tag assignee"><b>Assigned to:</b> ${escapeHtml(t.assignee)}</span>` : ''}
+            ${t.dept ? colorTag(t.dept, t.dept, "Department") : ''}
+            ${t.assignee ? colorTag(t.assignee, t.assignee, "Assigned to") : ''}
             ${t.timing ? `<span class="timing">${escapeHtml(t.timing)}</span>` : ''}
           </div>
           ${t.note ? `<div class="task-note">${escapeHtml(t.note)}</div>` : ''}
