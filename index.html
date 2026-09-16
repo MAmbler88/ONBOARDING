@@ -905,10 +905,10 @@ function renderSitePills(){
 }
 
 function siteTag(site){
-  if(!site || site === 'all') return '<span class="tag all">All company</span>';
+  if(!site || site === 'all') return '<span class="tag all"><b>Site:</b> All company</span>';
   const entry = (state.siteList||[]).find(s => s.key === site);
   const label = entry ? entry.name : site;
-  return `<span class="tag site">${escapeHtml(label)} only</span>`;
+  return `<span class="tag site"><b>Site:</b> ${escapeHtml(label)}</span>`;
 }
 
 function escapeHtml(str){
@@ -999,8 +999,8 @@ function renderPage(){
           <div class="task-name">${escapeHtml(t.name)}</div>
           <div class="task-meta">
             ${siteTag(t.site)}
-            ${t.dept ? `<span class="tag dept">${escapeHtml(t.dept)}</span>` : ''}
-            ${t.assignee ? `<span class="tag assignee">${escapeHtml(t.assignee)}</span>` : ''}
+            ${t.dept ? `<span class="tag dept"><b>Department:</b> ${escapeHtml(t.dept)}</span>` : ''}
+            ${t.assignee ? `<span class="tag assignee"><b>Assigned to:</b> ${escapeHtml(t.assignee)}</span>` : ''}
             ${t.timing ? `<span class="timing">${escapeHtml(t.timing)}</span>` : ''}
           </div>
           ${t.note ? `<div class="task-note">${escapeHtml(t.note)}</div>` : ''}
