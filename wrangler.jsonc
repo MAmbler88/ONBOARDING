@@ -1,0 +1,15 @@
+{
+  "name": "onboarding",
+  "compatibility_date": "2026-09-15",
+  "main": "_worker.js",
+  "assets": {
+    "directory": ".",
+    "binding": "ASSETS"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "PROCESS_INDEX_KV",
+      "id": "fd44483a5c5346c3a31bf040dab9b66b"
+    }
+  ]
+}
