@@ -642,6 +642,7 @@
 const GUIDE = "guide", REF = "ref", NONE = "none", NOTNEEDED = "notneeded";
 const PAGELIST_KEY = "__pagelist__";
 const SITELIST_KEY = "__sitelist__";
+const PALETTE_KEY = "__palette__";
 
 const DEFAULT_PAGELIST = [
   { key: "onboarding", name: "Onboarding" },
@@ -653,6 +654,8 @@ const DEFAULT_SITELIST = [
   { key: "aus", name: "AUS" },
   { key: "ca", name: "CA" },
 ];
+
+const DEFAULT_PALETTE = ["#831654", "#681650", "#166C84", "#327856", "#4E6E21"];
 
 const CUSTOM_DESCRIPTIONS = {
   onboarding: "Every task from the master onboarding sheet, with its matching Scribe guide linked directly. Filter by site or guide status, or search for a task by name.",
@@ -792,7 +795,7 @@ const DEFAULT_ONBOARDING = [
   ]},
 ];
 
-const DEFAULTS = { onboarding: DEFAULT_ONBOARDING, offboarding: [], campaign: [], [PAGELIST_KEY]: DEFAULT_PAGELIST, [SITELIST_KEY]: DEFAULT_SITELIST };
+const DEFAULTS = { onboarding: DEFAULT_ONBOARDING, offboarding: [], campaign: [], [PAGELIST_KEY]: DEFAULT_PAGELIST, [SITELIST_KEY]: DEFAULT_SITELIST, [PALETTE_KEY]: DEFAULT_PALETTE };
 
 /* ============ State ============ */
 let state = {
@@ -800,6 +803,7 @@ let state = {
   editMode: false,
   pageList: null,
   siteList: null,
+  tagPalette: null,
   data: {},
   filters: { site: "all", status: "all", search: "" }
 };
@@ -904,21 +908,67 @@ function renderSitePills(){
   container.innerHTML = html;
 }
 
-const TAG_COLOR_PALETTE = [
-  { text: "#6E325D", bg: "#F0EAEE" }, // muted purple
-  { text: "#356E7F", bg: "#EAEFF1" }, // muted blue
-  { text: "#4B7963", bg: "#EBEFED" }, // muted teal
-  { text: "#627A41", bg: "#EEF0EB" }, // muted lime
-  { text: "#B2682E", bg: "#F2EDE8" }, // muted amber
-];
+function hexToHsl(hex){
+  hex = hex.replace('#','');
+  const r = parseInt(hex.substr(0,2),16)/255;
+  const g = parseInt(hex.substr(2,2),16)/255;
+  const b = parseInt(hex.substr(4,2),16)/255;
+  const max = Math.max(r,g,b), min = Math.min(r,g,b);
+  let h, s, l = (max+min)/2;
+  if(max===min){ h = 0; s = 0; }
+  else{
+    const d = max-min;
+    s = l > 0.5 ? d/(2-max-min) : d/(max+min);
+    switch(max){
+      case r: h = (g-b)/d + (g<b?6:0); break;
+      case g: h = (b-r)/d + 2; break;
+      default: h = (r-g)/d + 4;
+    }
+    h /= 6;
+  }
+  return {h, s, l};
+}
+
+function hslToHex(h, s, l){
+  let r, g, b;
+  if(s===0){ r=g=b=l; }
+  else{
+    const hue2rgb = (p,q,t)=>{
+      if(t<0) t+=1;
+      if(t>1) t-=1;
+      if(t<1/6) return p+(q-p)*6*t;
+      if(t<1/2) return q;
+      if(t<2/3) return p+(q-p)*(2/3-t)*6;
+      return p;
+    };
+    const q = l < 0.5 ? l*(1+s) : l+s-l*s;
+    const p = 2*l-q;
+    r = hue2rgb(p,q,h+1/3);
+    g = hue2rgb(p,q,h);
+    b = hue2rgb(p,q,h-1/3);
+  }
+  const toHex = x => Math.round(x*255).toString(16).padStart(2,'0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+}
+
+function bgTintFor(hex){
+  try{
+    const {h, s} = hexToHsl(hex);
+    return hslToHex(h, Math.min(1, s*0.55), 0.94);
+  }catch(e){
+    return "#EEEEEE";
+  }
+}
 
 function colorForValue(value){
+  const palette = (state.tagPalette && state.tagPalette.length) ? state.tagPalette : DEFAULT_PALETTE;
   const str = String(value || "");
   let hash = 0;
   for(let i=0; i<str.length; i++){
     hash = (hash * 31 + str.charCodeAt(i)) | 0;
   }
-  return TAG_COLOR_PALETTE[Math.abs(hash) % TAG_COLOR_PALETTE.length];
+  const text = palette[Math.abs(hash) % palette.length];
+  return { text, bg: bgTintFor(text) };
 }
 
 function colorTag(label, value, prefix){
@@ -1496,10 +1546,30 @@ function renderSettingsPage(){
       </div>
     </div>`;
   });
-  html += `<button class="add-section-btn" id="addSiteBtn" style="margin-top:6px;">
+  html += `<button class="add-section-btn" id="addSiteBtn" style="margin-top:6px; margin-bottom:32px;">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
     Add site
   </button>`;
+
+  html += `<h2 style="font-size:13px; font-weight:600; color:var(--ink); border-left:3px solid var(--brand); padding-left:10px; margin:0 0 12px;">Tag colors</h2>
+  <p style="font-size:13px; color:var(--ink-soft); margin:0 0 14px;">Each site, department, and person gets a color from this list automatically, based on their name. Pick your own colors, or add more for extra variety.</p>
+  <div id="paletteSwatches" style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">`;
+  (state.tagPalette||[]).forEach((hex, i)=>{
+    html += `<div style="display:flex; align-items:center; gap:10px; padding:8px 10px; background:var(--panel); border:1px solid var(--line); border-radius:8px;">
+      <input type="color" data-palette-color="${i}" value="${hex}" style="width:36px; height:36px; padding:0; border:1px solid var(--line); border-radius:6px; cursor:pointer;">
+      <span class="tag" style="background:${bgTintFor(hex)}; color:${hex}; font-weight:500;"><b>Example:</b> Preview</span>
+      <span style="margin-left:auto; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink-soft);">${hex}</span>
+      <button class="icon-btn danger" data-delete-color="${i}" title="Remove color">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>
+      </button>
+    </div>`;
+  });
+  html += `</div>
+  <button class="add-section-btn" id="addColorBtn" style="margin-top:6px; margin-bottom:6px;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    Add color
+  </button>
+  <button class="side-action" id="resetPaletteBtn" style="margin-top:2px;">Reset to default colors</button>`;
 
   html += `</div>`;
   body.innerHTML = html;
@@ -1518,6 +1588,41 @@ function renderSettingsPage(){
   });
   document.querySelectorAll('[data-delete-site]').forEach(btn=>{
     btn.addEventListener('click', ()=>deleteSite(+btn.dataset.deleteSite));
+  });
+
+  document.querySelectorAll('[data-palette-color]').forEach(input=>{
+    input.addEventListener('change', async ()=>{
+      const i = +input.dataset.paletteColor;
+      state.tagPalette[i] = input.value.toUpperCase();
+      await savePage(PALETTE_KEY, state.tagPalette);
+      renderSettingsPage();
+      showToast("Saved");
+    });
+  });
+  document.querySelectorAll('[data-delete-color]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const i = +btn.dataset.deleteColor;
+      if(state.tagPalette.length <= 1){
+        showToast("Keep at least one color");
+        return;
+      }
+      state.tagPalette.splice(i, 1);
+      await savePage(PALETTE_KEY, state.tagPalette);
+      renderSettingsPage();
+      showToast("Color removed");
+    });
+  });
+  document.getElementById('addColorBtn').addEventListener('click', async ()=>{
+    state.tagPalette.push("#5B6472");
+    await savePage(PALETTE_KEY, state.tagPalette);
+    renderSettingsPage();
+  });
+  document.getElementById('resetPaletteBtn').addEventListener('click', async ()=>{
+    if(!confirm("Reset tag colors back to the default 5-color palette?")) return;
+    state.tagPalette = [...DEFAULT_PALETTE];
+    await savePage(PALETTE_KEY, state.tagPalette);
+    renderSettingsPage();
+    showToast("Reset to defaults");
   });
 }
 
@@ -1638,6 +1743,7 @@ async function deleteProcess(idx){
   try{
     state.pageList = await loadPage(PAGELIST_KEY);
     state.siteList = await loadPage(SITELIST_KEY);
+    state.tagPalette = await loadPage(PALETTE_KEY);
     renderPageSwitchNav();
 
     const firstKey = state.pageList[0] ? state.pageList[0].key : null;
