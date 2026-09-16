@@ -823,7 +823,7 @@ function slugifyKey(name, existingList){
 }
 
 /* ============ Storage helpers (shared backend via Netlify Function) ============ */
-const API_BASE = "/.netlify/functions/data";
+const API_BASE = "/api/data";
 
 function ensureTaskIds(groups){
   if(!Array.isArray(groups)) return false;
