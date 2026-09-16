@@ -642,7 +642,10 @@
 const GUIDE = "guide", REF = "ref", NONE = "none", NOTNEEDED = "notneeded";
 const PAGELIST_KEY = "__pagelist__";
 const SITELIST_KEY = "__sitelist__";
+const DEPTLIST_KEY = "__deptlist__";
+const ASSIGNEELIST_KEY = "__assigneelist__";
 const PALETTE_KEY = "__palette__";
+const COLOR_ASSIGN_KEY = "__color_assignments__";
 
 const DEFAULT_PAGELIST = [
   { key: "onboarding", name: "Onboarding" },
@@ -655,7 +658,22 @@ const DEFAULT_SITELIST = [
   { key: "ca", name: "CA" },
 ];
 
+const DEFAULT_DEPTLIST = [
+  { key: "sales", name: "Sales" },
+  { key: "finance", name: "Finance" },
+  { key: "operations", name: "Operations" },
+  { key: "compliance", name: "Compliance" },
+  { key: "support-student-services", name: "Support & Student Services" },
+];
+
+const DEFAULT_ASSIGNEELIST = [
+  { key: "madison-ambler", name: "Madison Ambler" },
+  { key: "alison-vine", name: "Alison Vine" },
+  { key: "julian-ryan", name: "Julian Ryan" },
+];
+
 const DEFAULT_PALETTE = ["#831654", "#681650", "#166C84", "#327856", "#4E6E21"];
+const DEFAULT_COLOR_ASSIGNMENTS = []; // [{ category: "site"|"dept"|"assignee", value: string, color: hex }]
 
 const CUSTOM_DESCRIPTIONS = {
   onboarding: "Every task from the master onboarding sheet, with its matching Scribe guide linked directly. Filter by site or guide status, or search for a task by name.",
@@ -795,7 +813,7 @@ const DEFAULT_ONBOARDING = [
   ]},
 ];
 
-const DEFAULTS = { onboarding: DEFAULT_ONBOARDING, offboarding: [], campaign: [], [PAGELIST_KEY]: DEFAULT_PAGELIST, [SITELIST_KEY]: DEFAULT_SITELIST, [PALETTE_KEY]: DEFAULT_PALETTE };
+const DEFAULTS = { onboarding: DEFAULT_ONBOARDING, offboarding: [], campaign: [], [PAGELIST_KEY]: DEFAULT_PAGELIST, [SITELIST_KEY]: DEFAULT_SITELIST, [DEPTLIST_KEY]: DEFAULT_DEPTLIST, [ASSIGNEELIST_KEY]: DEFAULT_ASSIGNEELIST, [PALETTE_KEY]: DEFAULT_PALETTE, [COLOR_ASSIGN_KEY]: DEFAULT_COLOR_ASSIGNMENTS };
 
 /* ============ State ============ */
 let state = {
@@ -803,7 +821,10 @@ let state = {
   editMode: false,
   pageList: null,
   siteList: null,
+  deptList: null,
+  assigneeList: null,
   tagPalette: null,
+  colorAssignments: null,
   data: {},
   filters: { site: "all", status: "all", search: "" }
 };
@@ -960,7 +981,15 @@ function bgTintFor(hex){
   }
 }
 
-function colorForValue(value){
+function findColorAssignment(category, value){
+  return (state.colorAssignments||[]).find(a => a.category===category && a.value===value);
+}
+
+function colorForValue(value, category){
+  if(category){
+    const assigned = findColorAssignment(category, value);
+    if(assigned) return { text: assigned.color, bg: bgTintFor(assigned.color) };
+  }
   const palette = (state.tagPalette && state.tagPalette.length) ? state.tagPalette : DEFAULT_PALETTE;
   const str = String(value || "");
   let hash = 0;
@@ -971,8 +1000,8 @@ function colorForValue(value){
   return { text, bg: bgTintFor(text) };
 }
 
-function colorTag(label, value, prefix){
-  const c = colorForValue(value);
+function colorTag(label, value, prefix, category){
+  const c = colorForValue(value, category);
   return `<span class="tag" style="background:${c.bg}; color:${c.text}; font-weight:500;"><b>${prefix}:</b> ${escapeHtml(label)}</span>`;
 }
 
@@ -980,7 +1009,21 @@ function siteTag(site){
   if(!site || site === 'all') return '<span class="tag all"><b>Site:</b> All company</span>';
   const entry = (state.siteList||[]).find(s => s.key === site);
   const label = entry ? entry.name : site;
-  return colorTag(label, site, "Site");
+  return colorTag(label, site, "Site", "site");
+}
+
+function deptTag(dept){
+  if(!dept) return '';
+  const entry = (state.deptList||[]).find(d => d.key === dept);
+  const label = entry ? entry.name : dept; // falls back to raw text for older free-typed values
+  return colorTag(label, dept, "Department", "dept");
+}
+
+function assigneeTag(assignee){
+  if(!assignee) return '';
+  const entry = (state.assigneeList||[]).find(a => a.key === assignee);
+  const label = entry ? entry.name : assignee; // falls back to raw text for older free-typed values
+  return colorTag(label, assignee, "Assigned to", "assignee");
 }
 
 function escapeHtml(str){
@@ -1071,8 +1114,8 @@ function renderPage(){
           <div class="task-name">${escapeHtml(t.name)}</div>
           <div class="task-meta">
             ${siteTag(t.site)}
-            ${t.dept ? colorTag(t.dept, t.dept, "Department") : ''}
-            ${t.assignee ? colorTag(t.assignee, t.assignee, "Assigned to") : ''}
+            ${t.dept ? deptTag(t.dept) : ''}
+            ${t.assignee ? assigneeTag(t.assignee) : ''}
             ${t.timing ? `<span class="timing">${escapeHtml(t.timing)}</span>` : ''}
           </div>
           ${t.note ? `<div class="task-note">${escapeHtml(t.note)}</div>` : ''}
@@ -1261,12 +1304,26 @@ function openTaskModal(loc){
     </div>
     <div class="field-row">
       <div class="field">
-        <label for="fDept">Department / condition (optional)</label>
-        <input type="text" id="fDept" value="${escapeHtml(existing.dept || '')}" placeholder="e.g. Sales, Finance">
+        <label for="fDept">Department (optional)</label>
+        <select id="fDept">
+          <option value="">— None —</option>
+          ${(state.deptList||[]).map(d =>
+            `<option value="${escapeHtml(d.key)}" ${existing.dept===d.key?'selected':''}>${escapeHtml(d.name)}</option>`
+          ).join('')}
+          ${(existing.dept && !(state.deptList||[]).some(d=>d.key===existing.dept))
+            ? `<option value="${escapeHtml(existing.dept)}" selected>${escapeHtml(existing.dept)} (not in list)</option>` : ''}
+        </select>
       </div>
       <div class="field">
         <label for="fAssignee">Assigned to (optional)</label>
-        <input type="text" id="fAssignee" value="${escapeHtml(existing.assignee || '')}" placeholder="e.g. Madison Ambler">
+        <select id="fAssignee">
+          <option value="">— None —</option>
+          ${(state.assigneeList||[]).map(a =>
+            `<option value="${escapeHtml(a.key)}" ${existing.assignee===a.key?'selected':''}>${escapeHtml(a.name)}</option>`
+          ).join('')}
+          ${(existing.assignee && !(state.assigneeList||[]).some(a=>a.key===existing.assignee))
+            ? `<option value="${escapeHtml(existing.assignee)}" selected>${escapeHtml(existing.assignee)} (not in list)</option>` : ''}
+        </select>
       </div>
     </div>
     <div class="field">
@@ -1551,17 +1608,35 @@ function renderSettingsPage(){
     Add site
   </button>`;
 
+  html += renderManagedListSection("Departments", state.deptList, "dept", "Add department");
+  html += renderManagedListSection("People", state.assigneeList, "person", "Add person");
+
   html += `<h2 style="font-size:13px; font-weight:600; color:var(--ink); border-left:3px solid var(--brand); padding-left:10px; margin:0 0 12px;">Tag colors</h2>
-  <p style="font-size:13px; color:var(--ink-soft); margin:0 0 14px;">Each site, department, and person gets a color from this list automatically, based on their name. Pick your own colors, or add more for extra variety.</p>
+  <p style="font-size:13px; color:var(--ink-soft); margin:0 0 14px;">Sites, departments, and people get a color automatically based on their name. Assign a color to a specific one to override that.</p>
   <div id="paletteSwatches" style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">`;
   (state.tagPalette||[]).forEach((hex, i)=>{
-    html += `<div style="display:flex; align-items:center; gap:10px; padding:8px 10px; background:var(--panel); border:1px solid var(--line); border-radius:8px;">
-      <input type="color" data-palette-color="${i}" value="${hex}" style="width:36px; height:36px; padding:0; border:1px solid var(--line); border-radius:6px; cursor:pointer;">
-      <span class="tag" style="background:${bgTintFor(hex)}; color:${hex}; font-weight:500;"><b>Example:</b> Preview</span>
-      <span style="margin-left:auto; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink-soft);">${hex}</span>
-      <button class="icon-btn danger" data-delete-color="${i}" title="Remove color">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>
-      </button>
+    const assignedList = (state.colorAssignments||[]).filter(a => a.color.toUpperCase() === hex.toUpperCase());
+    html += `<div style="padding:8px 10px; background:var(--panel); border:1px solid var(--line); border-radius:8px;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <input type="color" data-palette-color="${i}" value="${hex}" style="width:36px; height:36px; padding:0; border:1px solid var(--line); border-radius:6px; cursor:pointer;">
+        <span class="tag" style="background:${bgTintFor(hex)}; color:${hex}; font-weight:500;"><b>Example:</b> Preview</span>
+        <span style="margin-left:auto; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink-soft);">${hex}</span>
+        <button class="icon-btn" data-assign-color="${i}" title="Assign to a site, department, or person">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+        <button class="icon-btn danger" data-delete-color="${i}" title="Remove color">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>
+        </button>
+      </div>
+      ${assignedList.length ? `<div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; padding-left:46px;">
+        ${assignedList.map(a => {
+          const globalIdx = state.colorAssignments.indexOf(a);
+          return `<span class="tag" style="background:${bgTintFor(hex)}; color:${hex}; display:inline-flex; align-items:center; gap:5px;">
+            <b>${escapeHtml(categoryLabel(a.category))}:</b> ${escapeHtml(categoryValueName(a.category, a.value))}
+            <button data-remove-assignment="${globalIdx}" title="Remove assignment" style="border:none; background:none; cursor:pointer; color:inherit; font-weight:700; padding:0; line-height:1;">&times;</button>
+          </span>`;
+        }).join('')}
+      </div>` : ''}
     </div>`;
   });
   html += `</div>
@@ -1588,6 +1663,18 @@ function renderSettingsPage(){
   });
   document.querySelectorAll('[data-delete-site]').forEach(btn=>{
     btn.addEventListener('click', ()=>deleteSite(+btn.dataset.deleteSite));
+  });
+
+  document.querySelectorAll('[data-add-managed]').forEach(btn=>{
+    btn.addEventListener('click', ()=>openManagedItemModal(btn.dataset.addManaged, -1));
+  });
+  document.querySelectorAll('[data-rename-managed]').forEach(btn=>{
+    const [kind, idxStr] = btn.dataset.renameManaged.split(':');
+    btn.addEventListener('click', ()=>openManagedItemModal(kind, +idxStr));
+  });
+  document.querySelectorAll('[data-delete-managed]').forEach(btn=>{
+    const [kind, idxStr] = btn.dataset.deleteManaged.split(':');
+    btn.addEventListener('click', ()=>deleteManagedItem(kind, +idxStr));
   });
 
   document.querySelectorAll('[data-palette-color]').forEach(input=>{
@@ -1624,6 +1711,204 @@ function renderSettingsPage(){
     renderSettingsPage();
     showToast("Reset to defaults");
   });
+
+  document.querySelectorAll('[data-assign-color]').forEach(btn=>{
+    btn.addEventListener('click', ()=>openAssignColorModal(+btn.dataset.assignColor));
+  });
+  document.querySelectorAll('[data-remove-assignment]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const i = +btn.dataset.removeAssignment;
+      state.colorAssignments.splice(i, 1);
+      await savePage(COLOR_ASSIGN_KEY, state.colorAssignments);
+      renderSettingsPage();
+      showToast("Assignment removed");
+    });
+  });
+}
+
+function categoryLabel(cat){
+  if(cat === 'site') return 'Site';
+  if(cat === 'dept') return 'Department';
+  if(cat === 'assignee') return 'Assigned to';
+  return cat;
+}
+
+function categoryValueName(category, value){
+  const list = category === 'site' ? state.siteList : category === 'dept' ? state.deptList : state.assigneeList;
+  const entry = (list||[]).find(item => item.key === value);
+  return entry ? entry.name : value;
+}
+
+function openAssignColorModal(paletteIdx){
+  const hex = state.tagPalette[paletteIdx];
+  const box = document.getElementById('modalBox');
+  const siteOptions = (state.siteList||[]).map(s => `<option value="${escapeHtml(s.key)}">${escapeHtml(s.name)}</option>`).join('');
+  const deptOptions = (state.deptList||[]).map(d => `<option value="${escapeHtml(d.key)}">${escapeHtml(d.name)}</option>`).join('');
+  const personOptions = (state.assigneeList||[]).map(a => `<option value="${escapeHtml(a.key)}">${escapeHtml(a.name)}</option>`).join('');
+
+  box.innerHTML = `
+    <h3>Assign this color</h3>
+    <div class="field">
+      <label>Color</label>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span style="width:24px; height:24px; border-radius:5px; background:${hex}; border:1px solid var(--line); display:inline-block;"></span>
+        <span style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--ink-soft);">${hex}</span>
+      </div>
+    </div>
+    <div class="field">
+      <label for="fAssignCategory">Assign to</label>
+      <select id="fAssignCategory">
+        <option value="site">A site</option>
+        <option value="dept">A department</option>
+        <option value="assignee">A specific person</option>
+      </select>
+    </div>
+    <div class="field" id="fAssignSiteField">
+      <label for="fAssignSiteValue">Which site</label>
+      <select id="fAssignSiteValue">${siteOptions}</select>
+    </div>
+    <div class="field" id="fAssignDeptField" style="display:none;">
+      <label for="fAssignDeptValue">Which department</label>
+      <select id="fAssignDeptValue">${deptOptions}</select>
+    </div>
+    <div class="field" id="fAssignPersonField" style="display:none;">
+      <label for="fAssignPersonValue">Which person</label>
+      <select id="fAssignPersonValue">${personOptions}</select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="modalCancel">Cancel</button>
+      <button class="btn primary" id="modalSave">Assign</button>
+    </div>
+  `;
+  document.getElementById('modalOverlay').classList.add('show');
+
+  const categorySelect = document.getElementById('fAssignCategory');
+  const siteField = document.getElementById('fAssignSiteField');
+  const deptField = document.getElementById('fAssignDeptField');
+  const personField = document.getElementById('fAssignPersonField');
+
+  function syncCategoryFields(){
+    const cat = categorySelect.value;
+    siteField.style.display = cat === 'site' ? 'block' : 'none';
+    deptField.style.display = cat === 'dept' ? 'block' : 'none';
+    personField.style.display = cat === 'assignee' ? 'block' : 'none';
+  }
+  syncCategoryFields();
+  categorySelect.addEventListener('change', syncCategoryFields);
+
+  document.getElementById('modalCancel').addEventListener('click', closeModal);
+  document.getElementById('modalSave').addEventListener('click', async ()=>{
+    const category = categorySelect.value;
+    const value = category === 'site' ? document.getElementById('fAssignSiteValue').value
+      : category === 'dept' ? document.getElementById('fAssignDeptValue').value
+      : document.getElementById('fAssignPersonValue').value;
+
+    if(!value){
+      showToast(category === 'site' ? "Add a site first" : category === 'dept' ? "Add a department first" : "Add a person first");
+      return;
+    }
+
+    // replace any existing assignment for this same category+value
+    state.colorAssignments = state.colorAssignments.filter(a => !(a.category===category && a.value===value));
+    state.colorAssignments.push({ category, value, color: hex });
+
+    await savePage(COLOR_ASSIGN_KEY, state.colorAssignments);
+    closeModal();
+    renderSettingsPage();
+    showToast("Color assigned");
+  });
+}
+
+function renderManagedListSection(title, list, kind, addLabel){
+  let html = `<h2 style="font-size:13px; font-weight:600; color:var(--ink); border-left:3px solid var(--brand); padding-left:10px; margin:0 0 12px;">${escapeHtml(title)}</h2>`;
+  (list||[]).forEach((item, i)=>{
+    html += `<div class="task-row" style="grid-template-columns:1fr auto;">
+      <div class="task-main">
+        <div class="task-name">${escapeHtml(item.name)}</div>
+        <div class="task-note" style="margin-top:2px;">Key: ${escapeHtml(item.key)}</div>
+      </div>
+      <div class="action">
+        <button class="icon-btn" data-rename-managed="${kind}:${i}" title="Rename">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        </button>
+        <button class="icon-btn danger" data-delete-managed="${kind}:${i}" title="Delete">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>
+        </button>
+      </div>
+    </div>`;
+  });
+  html += `<button class="add-section-btn" data-add-managed="${kind}" style="margin-top:6px; margin-bottom:32px;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    ${escapeHtml(addLabel)}
+  </button>`;
+  return html;
+}
+
+const MANAGED_LIST_CONFIG = {
+  dept: {
+    getList: () => state.deptList,
+    setList: (l) => { state.deptList = l; },
+    storageKey: DEPTLIST_KEY,
+    singular: "department",
+    placeholder: "e.g. Sales",
+  },
+  person: {
+    getList: () => state.assigneeList,
+    setList: (l) => { state.assigneeList = l; },
+    storageKey: ASSIGNEELIST_KEY,
+    singular: "person",
+    placeholder: "e.g. Jane Smith",
+  },
+};
+
+function openManagedItemModal(kind, idx){
+  const cfg = MANAGED_LIST_CONFIG[kind];
+  const list = cfg.getList();
+  const isNew = idx === -1;
+  const existing = isNew ? { name: "" } : list[idx];
+  const box = document.getElementById('modalBox');
+  box.innerHTML = `
+    <h3>${isNew ? `Add ${cfg.singular}` : `Rename ${cfg.singular}`}</h3>
+    <div class="field">
+      <label for="fManagedName">Name</label>
+      <input type="text" id="fManagedName" value="${escapeHtml(existing.name)}" placeholder="${cfg.placeholder}">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="modalCancel">Cancel</button>
+      <button class="btn primary" id="modalSave">${isNew ? `Add ${cfg.singular}` : 'Save'}</button>
+    </div>
+  `;
+  document.getElementById('modalOverlay').classList.add('show');
+  const nameInput = document.getElementById('fManagedName');
+  nameInput.focus();
+
+  document.getElementById('modalCancel').addEventListener('click', closeModal);
+  document.getElementById('modalSave').addEventListener('click', async ()=>{
+    const name = nameInput.value.trim();
+    if(!name){ nameInput.focus(); return; }
+
+    if(isNew){
+      const key = slugifyKey(name, list);
+      list.push({ key, name });
+    } else {
+      list[idx].name = name;
+    }
+    await savePage(cfg.storageKey, list);
+    closeModal();
+    renderSettingsPage();
+    showToast(isNew ? `${cfg.singular.charAt(0).toUpperCase()+cfg.singular.slice(1)} added` : "Saved");
+  });
+}
+
+async function deleteManagedItem(kind, idx){
+  const cfg = MANAGED_LIST_CONFIG[kind];
+  const list = cfg.getList();
+  const entry = list[idx];
+  if(!confirm(`Delete "${entry.name}"? Any tasks currently using this will show it as an unrecognised value until re-tagged.`)) return;
+  list.splice(idx, 1);
+  await savePage(cfg.storageKey, list);
+  renderSettingsPage();
+  showToast(`${cfg.singular.charAt(0).toUpperCase()+cfg.singular.slice(1)} deleted`);
 }
 
 function openSiteModal(idx){
@@ -1743,7 +2028,10 @@ async function deleteProcess(idx){
   try{
     state.pageList = await loadPage(PAGELIST_KEY);
     state.siteList = await loadPage(SITELIST_KEY);
+    state.deptList = await loadPage(DEPTLIST_KEY);
+    state.assigneeList = await loadPage(ASSIGNEELIST_KEY);
     state.tagPalette = await loadPage(PALETTE_KEY);
+    state.colorAssignments = await loadPage(COLOR_ASSIGN_KEY);
     renderPageSwitchNav();
 
     const firstKey = state.pageList[0] ? state.pageList[0].key : null;
@@ -1767,4 +2055,3 @@ async function deleteProcess(idx){
 
 </body>
 </html>
-
