@@ -287,11 +287,25 @@
     border:1px solid var(--line);
     border-radius:8px;
     margin-bottom:6px;
-    transition:border-color .12s ease;
+    transition:border-color .12s ease, opacity .12s ease;
   }
+  .task-row:has(.drag-handle){grid-template-columns:auto 1fr auto;}
   .task-row.hidden{display:none;}
   .task-row.editable{cursor:pointer;}
   .task-row.editable:hover{border-color:var(--brand);}
+  .task-row.dragging{opacity:.4;}
+  .task-row.drag-over{border-top:3px solid var(--brand);}
+
+  .drag-handle{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:var(--ink-soft);
+    cursor:grab;
+    flex-shrink:0;
+  }
+  .drag-handle svg{width:16px;height:16px;}
+  .drag-handle:active{cursor:grabbing;}
 
   .task-main{min-width:0;}
   .task-name{
@@ -362,12 +376,19 @@
   }
   a.ref-link:hover{background:#dbe0ee;}
 
-  .no-guide{
+  .no-guide-flag{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
     font-size:12.5px;
-    color:var(--missing);
+    font-weight:700;
+    color:#fff;
+    background:#E5342B;
     padding:7px 12px;
+    border-radius:6px;
     white-space:nowrap;
   }
+  .no-guide-flag svg{width:14px;height:14px;flex-shrink:0;}
 
   .no-guide-needed{
     font-size:12.5px;
@@ -600,6 +621,7 @@
         <button class="pill" data-status="none">No guide</button>
         <button class="pill" data-status="notneeded">Not needed</button>
       </div>
+
     </div>
 
     <div class="filter-label" id="jumpLabel">Jump to section</div>
@@ -814,7 +836,91 @@ const DEFAULT_ONBOARDING = [
   ]},
 ];
 
-const DEFAULTS = { onboarding: DEFAULT_ONBOARDING, offboarding: [], campaign: [], [PAGELIST_KEY]: DEFAULT_PAGELIST, [SITELIST_KEY]: DEFAULT_SITELIST, [DEPTLIST_KEY]: DEFAULT_DEPTLIST, [ASSIGNEELIST_KEY]: DEFAULT_ASSIGNEELIST, [PALETTE_KEY]: DEFAULT_PALETTE, [COLOR_ASSIGN_KEY]: DEFAULT_COLOR_ASSIGNMENTS };
+const DEFAULT_OFFBOARDING = [
+  { group: "General", tasks: [
+    { name:"Offboarding - {Employee - Full name}", site:"all", dept:"Operations", timing:"7 days before termination date", assignee:"Emma Schofield, Harriet Lloyd, Madison Ambler", kind:NOTNEEDED },
+    { name:"Upload End Resignation letter from Employee to Hi Bob", site:"all", dept:"Operations", timing:"2 days before termination date", assignee:"Madison Ambler", kind:NOTNEEDED, note:"Applies when leave/termination type is Mutual, Resignation, or End of Contract. Not for Non-Starters." },
+    { name:"Upload End of Employment Letter in Hi Bob", site:"all", dept:"Operations", timing:"14 days before termination date", assignee:"Madison Ambler", kind:NOTNEEDED, note:"Not for Non-Starters." },
+    { name:"Confirm Employee Private Email and Phone number", site:"all", dept:"Operations", timing:"5 days before termination date", assignee:"Madison Ambler", kind:NOTNEEDED, note:"Not for Non-Starters." },
+    { name:"Check Notice Period", site:"all", dept:"Operations", timing:"On termination date", assignee:"Madison Ambler", kind:GUIDE,
+      url:"https://scribehow.com/o/JnwaXeaqQRm26xDabV1K_w/viewer/Navigating_Employee_Lifecycle_Records_in_Bob__CxbKP99WTByjv1QpfB_3YQ",
+      note:"Not for Non-Starters." },
+    { name:"Email Terminated Employee", site:"all", dept:"Operations", timing:"Based on dependency", assignee:"Madison Ambler", kind:GUIDE,
+      url:"https://scribehow.com/o/JnwaXeaqQRm26xDabV1K_w/viewer/Email_Terminated_Employees__jGtwghNeQj6VM-T6IXPbVA",
+      note:"Not for Non-Starters." },
+  ]},
+  { group: "Payroll & Finance", tasks: [
+    { name:"Sync Terminated Employees to Xero", site:"aus", dept:"Finance", timing:"On termination date", assignee:"Alison Vine", kind:NOTNEEDED, note:"Not for Non-Starters." },
+    { name:"Make any outstanding payments to the departing employee", site:"all", dept:"Finance", timing:"On termination date", assignee:"Calum Heseltine", kind:NOTNEEDED, note:"Not for Non-Starters." },
+    { name:"Cancel company credit card", site:"aus", dept:"Finance", timing:"1 day before termination date", assignee:"Calum Heseltine", kind:NOTNEEDED, note:"Applies when Weel/Float User = Yes. Not for Non-Starters." },
+    { name:"Confirm the employee's final payroll is ready", site:"all", dept:"Finance", timing:"On termination date", assignee:"Calum Heseltine", kind:NOTNEEDED },
+    { name:"Learning Online CA | Final Payroll Completed", site:"ca", dept:"Finance", timing:"Based on dependency", assignee:"angus@alignedbooks.ca (external)", kind:NOTNEEDED },
+    { name:"Send off Separation Certificate", site:"aus", dept:"Finance", timing:"On termination date", assignee:"Alison Vine", kind:NOTNEEDED, note:"Not for Non-Starters." },
+  ]},
+  { group: "Equipment tasks", tasks: [
+    { name:"Return of equipment and company assets", site:"aus", dept:"IT", timing:"1 day before termination date", assignee:"Julian Ryan", kind:NOTNEEDED, note:"Applies when Hardware Items = Yes. Not for Non-Starters." },
+    { name:"Check for and remove Microsoft Account", site:"all", dept:"IT", timing:"1 day before termination date", assignee:"Julian Ryan", kind:NOTNEEDED, note:"Applies when Microsoft Account = Yes. Not for Non-Starters." },
+  ]},
+  { group: "Gmail", tasks: [
+    { name:"Forward Email to Admin Box/alternate", site:"all", dept:"RevOps", timing:"On termination date", assignee:"Madison Ambler", kind:NONE, note:"Applies when Gmail Access = Yes. Not for Non-Starters." },
+    { name:"Suspend Gmail", site:"all", dept:"RevOps", timing:"On termination date", assignee:"Madison Ambler", kind:NONE, note:"Applies when Gmail Access = Yes. Not for Non-Starters." },
+    { name:"Remove from Gmail Groups", site:"all", dept:"RevOps/IT", timing:"On termination date", assignee:"Madison Ambler", kind:NONE, note:"Applies when Gmail Access = Yes. Not for Non-Starters." },
+    { name:"Sign out of Endpoint", site:"all", dept:"RevOps/IT", timing:"On termination date", assignee:"Madison Ambler", kind:NONE, note:"Applies when Gmail Access = Yes. Not for Non-Starters." },
+    { name:"Delete Gmail", site:"all", dept:"RevOps", timing:"14 days after termination date", assignee:"Madison Ambler", kind:NONE, note:"Applies when Gmail Access = Yes. Not for Non-Starters." },
+    { name:"Gmail Take Out", site:"all", dept:"RevOps", timing:"14 days after termination date", assignee:"Madison Ambler", kind:NONE, note:"Applies when Gmail Access = Yes. Not for Non-Starters." },
+  ]},
+  { group: "Salesforce & Vonage", tasks: [
+    { name:"Freeze Sales Force", site:"all", dept:"RevOps", timing:"Based on dependency", assignee:"Madison Ambler", kind:NONE, note:"Applies when Salesforce Access = Yes. Not for Non-Starters." },
+    { name:"Remove Distribution Engine License", site:"all", dept:"RevOps", timing:"Based on dependency", assignee:"Madison Ambler", kind:NONE, note:"Applies when DE Access = Yes. Not for Non-Starters." },
+    { name:"Deactivate Salesforce", site:"all", dept:"RevOps", timing:"14 days after termination date", assignee:"Madison Ambler", kind:NONE, note:"Applies when Salesforce Access = Yes. Not for Non-Starters." },
+    { name:"Remove Vonage", site:"all", dept:"RevOps", timing:"Based on dependency", assignee:"Madison Ambler", kind:NONE, note:"Applies when Vonage Access = Yes. Not for Non-Starters." },
+    { name:"Remove SMS License", site:"all", dept:"RevOps", timing:"On termination date", assignee:"Madison Ambler", kind:NONE, note:"Applies when SMS Magic Access = Yes. Not for Non-Starters." },
+    { name:"Delete Alias", site:"all", dept:"RevOps", timing:"180 days after termination date", assignee:"Madison Ambler", kind:NOTNEEDED, note:"Only for Non-Starters. Applies when Salesforce Access = Yes." },
+    { name:"Salesforce records must be removed (Pending dial entries)", site:"all", dept:"RevOps", timing:"Based on dependency", assignee:"Madison Ambler", kind:NOTNEEDED },
+    { name:"Leads Reassigned", site:"all", dept:"RevOps", timing:"Based on dependency", assignee:"Madison Ambler", kind:NOTNEEDED },
+    { name:"Agent removed from dial lists", site:"all", dept:"RevOps", timing:"On termination date", assignee:"Madison Ambler", kind:NONE },
+    { name:"Check Opensense that their email has dropped off", site:"all", dept:"RevOps", timing:"On termination date", assignee:"Madison Ambler", kind:NONE },
+  ]},
+  { group: "Payment plans & other accounts", tasks: [
+    { name:"Remove from Honeybee", site:"ca", dept:"Operations", timing:"On termination date", assignee:"Madison Ambler", kind:GUIDE,
+      url:"https://scribehow.com/o/JnwaXeaqQRm26xDabV1K_w/viewer/Deleted_Honeybee_account__zpDTvMm9SOi3wwr9_zjZ_Q",
+      note:"Applies when AUS Payment Plans = Yes (as listed on the sheet). Not for Non-Starters." },
+    { name:"Remove Stripe Account", site:"all", dept:"Finance", timing:"On termination date", assignee:"Madison Ambler", kind:GUIDE,
+      url:"https://scribehow.com/o/JnwaXeaqQRm26xDabV1K_w/viewer/Delete_employee_account_from_Stripe__aYFXhBjTRMqU9U4qjKfpMg",
+      note:"Applies when Stripe Account = Yes. Not for Non-Starters." },
+    { name:"Remove Payright account", site:"aus", dept:"Finance", timing:"On termination date", assignee:"Madison Ambler", kind:GUIDE,
+      url:"https://scribehow.com/o/JnwaXeaqQRm26xDabV1K_w/viewer/Delete_employee_account_from_Payright__VR4df1J-SNe5qEmX7t4hwg",
+      note:"Applies when AUS Payment Plans = Yes. Not for Non-Starters." },
+    { name:"Remove Affirm Account", site:"ca", dept:"Finance", timing:"On termination date", assignee:"Madison Ambler", kind:GUIDE,
+      url:"https://scribehow.com/o/JnwaXeaqQRm26xDabV1K_w/viewer/Delete_employee_account_on_Affirm__UTlbAlxoTyaAevkalTcD4Q",
+      note:"Not for Non-Starters." },
+    { name:"Remove Ifinance Account", site:"ca", dept:"Finance", timing:"On termination date", assignee:"Madison Ambler", kind:GUIDE,
+      url:"https://scribehow.com/o/JnwaXeaqQRm26xDabV1K_w/viewer/Delete_employee_account_from_IFianace__nUl61ggTTdqzCs5ETrn2PQ",
+      note:"Applies when CA Payment Plans = Yes. Not for Non-Starters." },
+    { name:"Remove Elevant Account", site:"aus", dept:"Finance", timing:"On termination date", assignee:"Madison Ambler", kind:GUIDE,
+      url:"https://scribehow.com/o/JnwaXeaqQRm26xDabV1K_w/viewer/Delete_employee_account_on_Elevant__yyqyN17AQGyYJEIYemPawg",
+      note:"Applies when AUS Payment Plans = Yes. Not for Non-Starters." },
+    { name:"Remove Lumin Account", site:"all", dept:"Finance", timing:"On termination date", assignee:"Madison Ambler", kind:GUIDE,
+      url:"https://scribehow.com/o/JnwaXeaqQRm26xDabV1K_w/viewer/How_to_remove_someone_from_Lumin__44cHwlrRREKZpY-fDur2VA",
+      note:"Applies to Sales department, when Lumin Access = Yes." },
+  ]},
+  { group: "HR & document tasks", tasks: [
+    { name:"Remove from Monday", site:"all", dept:"Operations", timing:"On termination date", assignee:"Madison Ambler", kind:GUIDE,
+      url:"https://scribehow.com/o/JnwaXeaqQRm26xDabV1K_w/viewer/How_To_Navigate_To_The_Monday_Admin_Directory__CIRMHLX0SneOHA8rBvgd7g",
+      note:"Applies outside the Sales department, when Monday Access = Yes. Not for Non-Starters." },
+    { name:"Remove Learn Upon Access", site:"all", dept:"Operations", timing:"On termination date", assignee:"Madison Ambler", kind:GUIDE,
+      url:"https://scribehow.com/o/JnwaXeaqQRm26xDabV1K_w/viewer/How_to_Filter_and_Delete_Specific_Users__kHY7YOs-QRq7cVSCGdGq8w",
+      note:"Applies when Learn Upon Access = Yes. Not for Non-Starters." },
+    { name:"Remove from Slack", site:"all", dept:"Operations", timing:"On termination date", assignee:"Madison Ambler", kind:GUIDE,
+      url:"https://scribehow.com/o/JnwaXeaqQRm26xDabV1K_w/viewer/Delete_Employee_from_Slack__6GXL1OmXRom0kKSN3BMpAw",
+      note:"Applies when Slack Access = Yes. Not for Non-Starters." },
+    { name:"Remove Telus Health Login", site:"ca", dept:"Operations", timing:"On termination date", assignee:"Madison Ambler", kind:GUIDE,
+      url:"https://scribehow.com/o/JnwaXeaqQRm26xDabV1K_w/viewer/Accessing_TELUS_Health_One_Through_Colleague_Management__sV4yIbTpQLuw0bQWIlgFFw",
+      note:"Applies when Canadian Health Account Access = Yes." },
+  ]},
+];
+
+const DEFAULTS = { onboarding: DEFAULT_ONBOARDING, offboarding: DEFAULT_OFFBOARDING, campaign: [], [PAGELIST_KEY]: DEFAULT_PAGELIST, [SITELIST_KEY]: DEFAULT_SITELIST, [DEPTLIST_KEY]: DEFAULT_DEPTLIST, [ASSIGNEELIST_KEY]: DEFAULT_ASSIGNEELIST, [PALETTE_KEY]: DEFAULT_PALETTE, [COLOR_ASSIGN_KEY]: DEFAULT_COLOR_ASSIGNMENTS };
 
 /* ============ State ============ */
 let state = {
@@ -1017,7 +1123,7 @@ function deptTag(dept){
   if(!dept) return '';
   const entry = (state.deptList||[]).find(d => d.key === dept);
   const label = entry ? entry.name : dept; // falls back to raw text for older free-typed values
-  return colorTag(label, dept, "Department", "dept");
+  return colorTag(label, dept, "Dept Process Owner", "dept");
 }
 
 function assigneeTag(assignee){
@@ -1044,7 +1150,10 @@ function actionHTML(t){
   } else if(t.kind===NOTNEEDED){
     parts.push(`<span class="no-guide-needed">No guide needed</span>`);
   } else {
-    parts.push(`<span class="no-guide">No guide yet</span>`);
+    parts.push(`<span class="no-guide-flag">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+      No guide
+    </span>`);
   }
   if(state.editMode){
     parts.push(`<button class="icon-btn" data-edit-task="${t.id}" title="Edit task" onclick="event.stopPropagation()">
@@ -1104,13 +1213,18 @@ function renderPage(){
         </div>
       </div>`;
 
-    group.tasks.forEach(t=>{
+    group.tasks.forEach((t, tIdx)=>{
       totalTasks++;
       if(t.kind===GUIDE || t.kind===REF) totalGuides++;
       else if(t.kind===NOTNEEDED) totalNotNeeded++;
       const statusData = (t.kind===GUIDE||t.kind===REF) ? 'has' : (t.kind===NOTNEEDED ? 'notneeded' : 'none');
       const clickable = state.editMode ? ` data-task-id="${t.id}"` : '';
-      html += `<div class="task-row${state.editMode?' editable':''}" data-site="${t.site}" data-status="${statusData}" data-search="${escapeHtml(t.name.toLowerCase())}"${clickable}>
+      const dragAttrs = state.editMode ? ` draggable="true" data-drag-group="${gIdx}" data-drag-task="${tIdx}"` : '';
+      const gripHandle = state.editMode ? `<span class="drag-handle" title="Drag to reorder">
+        <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
+      </span>` : '';
+      html += `<div class="task-row${state.editMode?' editable':''}" data-site="${t.site}" data-status="${statusData}" data-search="${escapeHtml(t.name.toLowerCase())}"${clickable}${dragAttrs}>
+        ${gripHandle}
         <div class="task-main">
           <div class="task-name">${escapeHtml(t.name)}</div>
           <div class="task-meta">
@@ -1200,7 +1314,64 @@ function wireDynamicButtons(){
     document.querySelectorAll('.task-row[data-task-id]').forEach(row=>{
       row.addEventListener('click', ()=>openTaskModal(findTaskLocation(row.dataset.taskId)));
     });
+    wireDragAndDrop();
   }
+}
+
+let dragState = null; // { groupIdx, taskIdx }
+
+function reorderArray(arr, fromIndex, toIndex){
+  const item = arr[fromIndex];
+  arr.splice(fromIndex, 1);
+  const adjustedTo = fromIndex < toIndex ? toIndex - 1 : toIndex;
+  arr.splice(adjustedTo, 0, item);
+}
+
+function wireDragAndDrop(){
+  document.querySelectorAll('.task-row[data-drag-group]').forEach(row=>{
+    row.addEventListener('dragstart', e=>{
+      if(!e.target.closest('.drag-handle')){
+        e.preventDefault();
+        return;
+      }
+      dragState = { groupIdx: +row.dataset.dragGroup, taskIdx: +row.dataset.dragTask };
+      row.classList.add('dragging');
+      if(e.dataTransfer){
+        e.dataTransfer.effectAllowed = 'move';
+        try{ e.dataTransfer.setData('text/plain', ''); }catch(err){}
+      }
+    });
+    row.addEventListener('dragend', ()=>{
+      row.classList.remove('dragging');
+      document.querySelectorAll('.task-row.drag-over').forEach(r=>r.classList.remove('drag-over'));
+      dragState = null;
+    });
+    row.addEventListener('dragover', e=>{
+      if(!dragState) return;
+      const targetGroup = +row.dataset.dragGroup;
+      if(targetGroup !== dragState.groupIdx) return; // only reorder within the same section
+      e.preventDefault();
+      row.classList.add('drag-over');
+    });
+    row.addEventListener('dragleave', ()=>{
+      row.classList.remove('drag-over');
+    });
+    row.addEventListener('drop', async e=>{
+      e.preventDefault();
+      row.classList.remove('drag-over');
+      if(!dragState) return;
+      const targetGroup = +row.dataset.dragGroup;
+      const targetTask = +row.dataset.dragTask;
+      const source = dragState;
+      dragState = null;
+      if(targetGroup !== source.groupIdx) return;
+      if(targetTask === source.taskIdx) return;
+
+      const tasks = state.data[state.currentPage][targetGroup].tasks;
+      reorderArray(tasks, source.taskIdx, targetTask);
+      await persistCurrent();
+    });
+  });
 }
 
 function findTaskLocation(taskId){
@@ -1304,7 +1475,7 @@ function openTaskModal(loc){
     </div>
     <div class="field-row">
       <div class="field">
-        <label for="fDept">Department (optional)</label>
+        <label for="fDept">Dept Process Owner (optional)</label>
         <select id="fDept">
           <option value="">— None —</option>
           ${(state.deptList||[]).map(d =>
@@ -1608,8 +1779,8 @@ function renderSettingsPage(){
     Add site
   </button>`;
 
-  html += renderManagedListSection("Departments", state.deptList, "dept", "Add department");
-  html += renderManagedListSection("People", state.assigneeList, "person", "Add person");
+  html += renderManagedListSection("Dept Process Owner", state.deptList, "dept", "Add department");
+  html += renderManagedListSection("Assigned To", state.assigneeList, "person", "Add person");
 
   html += `<h2 style="font-size:13px; font-weight:600; color:var(--ink); border-left:3px solid var(--brand); padding-left:10px; margin:0 0 12px;">Tag colors</h2>
   <p style="font-size:13px; color:var(--ink-soft); margin:0 0 14px;">Sites, departments, and people get a color automatically based on their name. Assign a color to a specific one to override that.</p>
@@ -1728,7 +1899,7 @@ function renderSettingsPage(){
 
 function categoryLabel(cat){
   if(cat === 'site') return 'Site';
-  if(cat === 'dept') return 'Department';
+  if(cat === 'dept') return 'Dept Process Owner';
   if(cat === 'assignee') return 'Assigned to';
   return cat;
 }
@@ -1759,7 +1930,7 @@ function openAssignColorModal(paletteIdx){
       <label for="fAssignCategory">Assign to</label>
       <select id="fAssignCategory">
         <option value="site">A site</option>
-        <option value="dept">A department</option>
+        <option value="dept">A dept process owner</option>
         <option value="assignee">A specific person</option>
       </select>
     </div>
@@ -1768,7 +1939,7 @@ function openAssignColorModal(paletteIdx){
       <select id="fAssignSiteValue">${siteOptions}</select>
     </div>
     <div class="field" id="fAssignDeptField" style="display:none;">
-      <label for="fAssignDeptValue">Which department</label>
+      <label for="fAssignDeptValue">Which dept process owner</label>
       <select id="fAssignDeptValue">${deptOptions}</select>
     </div>
     <div class="field" id="fAssignPersonField" style="display:none;">
@@ -1804,7 +1975,7 @@ function openAssignColorModal(paletteIdx){
       : document.getElementById('fAssignPersonValue').value;
 
     if(!value){
-      showToast(category === 'site' ? "Add a site first" : category === 'dept' ? "Add a department first" : "Add a person first");
+      showToast(category === 'site' ? "Add a site first" : category === 'dept' ? "Add a dept process owner first" : "Add a person first");
       return;
     }
 
