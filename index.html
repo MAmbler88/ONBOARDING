@@ -303,8 +303,9 @@
     color:var(--ink-soft);
     cursor:grab;
     flex-shrink:0;
+    user-select:none;
   }
-  .drag-handle svg{width:16px;height:16px;}
+  .drag-handle svg{width:16px;height:16px;pointer-events:none;-webkit-user-drag:none;user-select:none;}
   .drag-handle:active{cursor:grabbing;}
 
   .task-main{min-width:0;}
