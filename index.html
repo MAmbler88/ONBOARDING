@@ -629,6 +629,7 @@
 
     <div class="stat-block" id="statBlock">Loading…</div>
     <button class="side-action" id="resetBtn">Reset this page to defaults</button>
+    <button class="side-action" id="importBtn">Import tasks…</button>
   </aside>
 
   <main>
@@ -1674,6 +1675,76 @@ document.getElementById('resetBtn').addEventListener('click', async ()=>{
   renderPage();
 });
 
+document.getElementById('importBtn').addEventListener('click', openImportModal);
+
+function openImportModal(){
+  const box = document.getElementById('modalBox');
+  box.innerHTML = `
+    <h3>Import tasks</h3>
+    <div class="field">
+      <label for="fImportJson">Paste task data (JSON)</label>
+      <textarea id="fImportJson" rows="12" style="font-family:'IBM Plex Mono',monospace; font-size:12px;" placeholder='[
+  {
+    "group": "Section name",
+    "tasks": [
+      { "name": "Task name", "site": "all", "kind": "none" }
+    ]
+  }
+]'></textarea>
+    </div>
+    <div class="field">
+      <label for="fImportMode">How should this be added</label>
+      <select id="fImportMode">
+        <option value="replace">Replace all tasks on this page</option>
+        <option value="append">Add alongside existing tasks</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="modalCancel">Cancel</button>
+      <button class="btn primary" id="modalSave">Import</button>
+    </div>
+  `;
+  document.getElementById('modalOverlay').classList.add('show');
+  document.getElementById('fImportJson').focus();
+
+  document.getElementById('modalCancel').addEventListener('click', closeModal);
+  document.getElementById('modalSave').addEventListener('click', async ()=>{
+    const raw = document.getElementById('fImportJson').value.trim();
+    const mode = document.getElementById('fImportMode').value;
+    if(!raw){ showToast("Paste some task data first"); return; }
+
+    let parsed;
+    try{
+      parsed = JSON.parse(raw);
+    }catch(e){
+      showToast("That's not valid JSON — check for a missing bracket or comma");
+      return;
+    }
+    if(!Array.isArray(parsed)){
+      showToast("Expected an array of sections at the top level");
+      return;
+    }
+    const valid = parsed.every(g => g && typeof g.group === 'string' && Array.isArray(g.tasks));
+    if(!valid){
+      showToast("Each section needs a \"group\" name and a \"tasks\" array");
+      return;
+    }
+
+    ensureTaskIds(parsed);
+
+    if(mode === 'replace'){
+      state.data[state.currentPage] = parsed;
+    } else {
+      state.data[state.currentPage] = [...(state.data[state.currentPage]||[]), ...parsed];
+    }
+
+    const ok = await savePage(state.currentPage, state.data[state.currentPage]);
+    closeModal();
+    renderPage();
+    showToast(ok ? "Tasks imported" : "Import saved locally, but syncing failed — try again");
+  });
+}
+
 function renderPageSwitchNav(){
   const container = document.getElementById('pageSwitch');
   let html = '';
@@ -1692,6 +1763,7 @@ function setSidebarChromeVisible(visible){
   document.getElementById('jumpNav').style.display = visible ? '' : 'none';
   document.getElementById('statBlock').style.display = visible ? '' : 'none';
   document.getElementById('resetBtn').style.display = visible ? '' : 'none';
+  document.getElementById('importBtn').style.display = visible ? '' : 'none';
   document.getElementById('editToggle').style.display = visible ? '' : 'none';
 }
 
