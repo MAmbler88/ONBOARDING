@@ -2073,7 +2073,7 @@ function openUserModal(existing){
   const isNew = !existing;
   const box = document.getElementById('modalBox');
   box.innerHTML = `
-    <h3>${isNew ? 'Add person' : 'Change role'}</h3>
+    <h3>${isNew ? 'Add person' : 'Edit person'}</h3>
     <div class="field">
       <label for="fUserEmail">Email</label>
       <input type="email" id="fUserEmail" value="${isNew ? '' : escapeHtml(existing.email)}" placeholder="name@company.com" ${isNew ? '' : 'disabled'}>
@@ -2085,6 +2085,10 @@ function openUserModal(existing){
         <option value="editor" ${(isNew || existing.role==='editor') ? 'selected' : ''}>Editor — can edit tasks and Settings</option>
         <option value="viewer" ${!isNew && existing.role==='viewer' ? 'selected' : ''}>Viewer — read-only</option>
       </select>
+    </div>
+    <div class="field">
+      <label for="fUserPassword">${isNew ? 'Password' : 'Reset password (optional)'}</label>
+      <input type="text" id="fUserPassword" placeholder="${isNew ? 'Choose a password for them' : 'Leave blank to keep their current password'}">
     </div>
     <div class="modal-actions">
       <button class="btn" id="modalCancel">Cancel</button>
@@ -2099,13 +2103,15 @@ function openUserModal(existing){
   document.getElementById('modalSave').addEventListener('click', async ()=>{
     const email = emailInput.value.trim();
     const role = document.getElementById('fUserRole').value;
+    const password = document.getElementById('fUserPassword').value;
     if(!email || !email.includes('@')){ showToast('Enter a valid email'); return; }
+    if(isNew && !password){ showToast('Set a password for this new person'); return; }
 
     try{
       const res = await fetch('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, role })
+        body: JSON.stringify({ email, role, password })
       });
       if(!res.ok){
         const err = await res.json().catch(()=>({}));
@@ -2114,7 +2120,7 @@ function openUserModal(existing){
       }
       closeModal();
       renderSettingsPage();
-      showToast(isNew ? 'Person added' : 'Role updated');
+      showToast(isNew ? 'Person added' : 'Saved');
     }catch(e){
       showToast('Could not save — check your connection');
     }
