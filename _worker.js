@@ -344,6 +344,14 @@ export default {
     if (url.pathname === "/api/logout" && request.method === "POST") return handleLogout(request, env);
     if (url.pathname === "/api/whoami") return handleWhoami(request, env);
     if (url.pathname === "/api/users") return handleUsers(request, env);
+    if (url.pathname === "/api/debug-env") {
+      return jsonResponse({
+        hasAdminEmailVar: typeof env.INITIAL_ADMIN_EMAIL !== "undefined",
+        adminEmailValue: env.INITIAL_ADMIN_EMAIL || null,
+        hasResendKey: typeof env.RESEND_API_KEY !== "undefined" && !!env.RESEND_API_KEY,
+        hasKvBinding: typeof env.PROCESS_INDEX_KV !== "undefined",
+      });
+    }
 
     // Everything else (the app itself and its static assets) requires a valid session.
     const session = await getSession(request, env);
