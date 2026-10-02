@@ -213,10 +213,14 @@ async function handleRequestCode(request, env) {
 
   if (env.RESEND_API_KEY) {
     try {
+      // Secrets Store bindings expose the value via .get(), not as a plain string.
+      const resendKey = typeof env.RESEND_API_KEY.get === "function"
+        ? await env.RESEND_API_KEY.get()
+        : env.RESEND_API_KEY;
       await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${env.RESEND_API_KEY}`,
+          "Authorization": `Bearer ${resendKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -349,6 +353,7 @@ export default {
         hasAdminEmailVar: typeof env.INITIAL_ADMIN_EMAIL !== "undefined",
         adminEmailValue: env.INITIAL_ADMIN_EMAIL || null,
         hasResendKey: typeof env.RESEND_API_KEY !== "undefined" && !!env.RESEND_API_KEY,
+        resendKeyIsSecretsStoreBinding: !!(env.RESEND_API_KEY && typeof env.RESEND_API_KEY.get === "function"),
         hasKvBinding: typeof env.PROCESS_INDEX_KV !== "undefined",
       });
     }
