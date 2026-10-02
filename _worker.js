@@ -1,7 +1,7 @@
 const PAGE_KEY_PATTERN = /^[a-zA-Z0-9_-]{1,100}$/;
 const SESSION_COOKIE = "pi_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
-const CODE_TTL_SECONDS = 60 * 10; // 10 minutes
+const PBKDF2_ITERATIONS = 100000;
 
 function jsonResponse(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
@@ -33,6 +33,37 @@ function setCookieHeader(name, value, maxAgeSeconds) {
 
 function clearCookieHeader(name) {
   return `${name}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict`;
+}
+
+/* ---------- Password hashing (PBKDF2) ---------- */
+function bytesToHex(bytes) {
+  return Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function hexToBytes(hex) {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+  }
+  return bytes;
+}
+
+async function hashPassword(password, existingSaltHex) {
+  const salt = existingSaltHex ? hexToBytes(existingSaltHex) : crypto.getRandomValues(new Uint8Array(16));
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt, iterations: PBKDF2_ITERATIONS, hash: "SHA-256" },
+    keyMaterial,
+    256
+  );
+  return { hash: bytesToHex(new Uint8Array(bits)), salt: bytesToHex(salt) };
+}
+
+async function verifyPassword(password, storedHash, storedSalt) {
+  if (!storedHash || !storedSalt) return false;
+  const { hash } = await hashPassword(password, storedSalt);
+  return hash === storedHash;
 }
 
 /* ---------- Users list (KV-backed) ---------- */
@@ -82,114 +113,64 @@ function loginPageHtml() {
 <title>Sign in</title>
 <style>
   body{font-family:'Inter',system-ui,sans-serif;background:#F6F5F1;color:#33363A;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;}
-  .box{background:#fff;border:1px solid #E1DED7;border-radius:10px;padding:36px 32px;max-width:360px;width:100%;box-sizing:border-box;}
-  h1{font-size:18px;margin:0 0 8px;}
-  p{font-size:13.5px;color:#767A75;margin:0 0 18px;}
+  .box{background:#fff;border:1px solid #E1DED7;border-radius:10px;padding:36px 32px;max-width:340px;width:100%;box-sizing:border-box;}
+  h1{font-size:18px;margin:0 0 18px;}
   input{width:100%;padding:10px 12px;border:1px solid #E1DED7;border-radius:6px;font-size:14px;margin-bottom:14px;box-sizing:border-box;font-family:inherit;}
   button{width:100%;padding:10px;border:none;border-radius:7px;background:#803A6C;color:#fff;font-weight:600;font-size:14px;cursor:pointer;font-family:inherit;}
   button:hover{background:#6E325D;}
   button:disabled{opacity:.6;cursor:default;}
   .err{color:#A15048;font-size:13px;margin-bottom:14px;}
-  .msg{color:#4A7D67;font-size:13px;margin-bottom:18px;}
-  .step{display:none;}
-  .step.active{display:block;}
-  a.back{font-size:13px;color:#767A75;text-decoration:underline;cursor:pointer;}
 </style>
 </head>
 <body>
-  <div class="box">
-    <div class="step active" id="stepEmail">
-      <h1>Sign in</h1>
-      <p>Enter your email and we'll send you a one-time code.</p>
-      <div id="emailErr" class="err" style="display:none;"></div>
-      <input type="email" id="emailInput" placeholder="you@company.com" autofocus autocomplete="email">
-      <button id="sendCodeBtn">Send code</button>
-    </div>
-    <div class="step" id="stepCode">
-      <h1>Enter your code</h1>
-      <p id="codeSentMsg" class="msg"></p>
-      <div id="codeErr" class="err" style="display:none;"></div>
-      <input type="text" id="codeInput" placeholder="6-digit code" inputmode="numeric" autocomplete="one-time-code" maxlength="6">
-      <button id="verifyBtn">Sign in</button>
-      <p style="margin-top:12px;"><a class="back" id="backLink">Use a different email</a></p>
-    </div>
-  </div>
+  <form class="box" id="loginForm">
+    <h1>Sign in</h1>
+    <div id="loginErr" class="err" style="display:none;"></div>
+    <input type="email" id="emailInput" placeholder="you@company.com" autofocus autocomplete="email">
+    <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password">
+    <button type="submit" id="loginBtn">Sign in</button>
+  </form>
   <script>
-    let currentEmail = "";
-    const stepEmail = document.getElementById('stepEmail');
-    const stepCode = document.getElementById('stepCode');
+    const form = document.getElementById('loginForm');
     const emailInput = document.getElementById('emailInput');
-    const emailErr = document.getElementById('emailErr');
-    const codeInput = document.getElementById('codeInput');
-    const codeErr = document.getElementById('codeErr');
-    const codeSentMsg = document.getElementById('codeSentMsg');
-    const sendBtn = document.getElementById('sendCodeBtn');
-    const verifyBtn = document.getElementById('verifyBtn');
+    const passwordInput = document.getElementById('passwordInput');
+    const loginErr = document.getElementById('loginErr');
+    const loginBtn = document.getElementById('loginBtn');
 
-    sendBtn.addEventListener('click', async ()=>{
-      emailErr.style.display = 'none';
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      loginErr.style.display = 'none';
       const email = emailInput.value.trim();
-      if(!email) return;
-      sendBtn.disabled = true; sendBtn.textContent = 'Sending…';
+      const password = passwordInput.value;
+      if(!email || !password) return;
+      loginBtn.disabled = true; loginBtn.textContent = 'Signing in…';
       try{
-        await fetch('/api/request-code', {
+        const res = await fetch('/api/login', {
           method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ email })
-        });
-        currentEmail = email;
-        codeSentMsg.textContent = 'If ' + email + ' is approved, a code has been sent — check your inbox.';
-        stepEmail.classList.remove('active');
-        stepCode.classList.add('active');
-        codeInput.focus();
-      }catch(e){
-        emailErr.textContent = 'Something went wrong. Try again.';
-        emailErr.style.display = 'block';
-      }
-      sendBtn.disabled = false; sendBtn.textContent = 'Send code';
-    });
-
-    verifyBtn.addEventListener('click', async ()=>{
-      codeErr.style.display = 'none';
-      const code = codeInput.value.trim();
-      if(!code) return;
-      verifyBtn.disabled = true; verifyBtn.textContent = 'Checking…';
-      try{
-        const res = await fetch('/api/verify-code', {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ email: currentEmail, code })
+          body: JSON.stringify({ email, password })
         });
         if(res.ok){
           window.location.href = '/';
           return;
         }
         const data = await res.json().catch(()=>({}));
-        codeErr.textContent = data.error || 'Incorrect or expired code.';
-        codeErr.style.display = 'block';
-      }catch(e){
-        codeErr.textContent = 'Something went wrong. Try again.';
-        codeErr.style.display = 'block';
+        loginErr.textContent = data.error || 'Incorrect email or password.';
+        loginErr.style.display = 'block';
+      }catch(err){
+        loginErr.textContent = 'Something went wrong. Try again.';
+        loginErr.style.display = 'block';
       }
-      verifyBtn.disabled = false; verifyBtn.textContent = 'Sign in';
+      loginBtn.disabled = false; loginBtn.textContent = 'Sign in';
     });
-
-    document.getElementById('backLink').addEventListener('click', ()=>{
-      stepCode.classList.remove('active');
-      stepEmail.classList.add('active');
-      codeInput.value = '';
-    });
-
-    codeInput.addEventListener('keydown', e=>{ if(e.key === 'Enter') verifyBtn.click(); });
-    emailInput.addEventListener('keydown', e=>{ if(e.key === 'Enter') sendBtn.click(); });
   </script>
 </body>
 </html>`;
 }
 
-/* ---------- Auth endpoints ---------- */
+/* ---------- Email helper (used only for the welcome notice now) ---------- */
 async function sendEmail(env, { to, subject, html }) {
   if (!env.RESEND_API_KEY) return;
   try {
-    // Secrets Store bindings expose the value via .get(), not as a plain string.
     const resendKey = typeof env.RESEND_API_KEY.get === "function"
       ? await env.RESEND_API_KEY.get()
       : env.RESEND_API_KEY;
@@ -211,58 +192,38 @@ async function sendEmail(env, { to, subject, html }) {
   }
 }
 
-async function handleRequestCode(request, env) {
+/* ---------- Login endpoint ---------- */
+async function handleLogin(request, env) {
   let body;
   try { body = await request.json(); } catch { return badRequest("Invalid JSON body"); }
   const email = String(body.email || "").trim().toLowerCase();
-  if (!email || !email.includes("@")) return badRequest("Enter a valid email");
+  const password = String(body.password || "");
+  if (!email || !password) return badRequest("Enter your email and password");
 
   const users = await getUsers(env);
-  let user = findUserByEmail(users, email);
+  const user = findUserByEmail(users, email);
 
-  // The configured initial admin is always allowed, even before appearing in the KV list.
-  const initialAdmin = String(env.INITIAL_ADMIN_EMAIL || "").trim().toLowerCase();
-  if (!user && initialAdmin && email === initialAdmin) {
-    user = { email, role: "admin" };
+  let role = null;
+
+  if (user && await verifyPassword(password, user.passwordHash, user.passwordSalt)) {
+    role = user.role;
   }
 
-  if (!user) {
-    // Don't reveal whether the email is approved.
-    return jsonResponse({ ok: true });
+  // Bootstrap admin fallback, in case they're not in the KV list yet.
+  if (!role) {
+    const initialAdmin = String(env.INITIAL_ADMIN_EMAIL || "").trim().toLowerCase();
+    const initialAdminPassword = String(env.INITIAL_ADMIN_PASSWORD || "");
+    if (initialAdmin && initialAdminPassword && email === initialAdmin && password === initialAdminPassword) {
+      role = "admin";
+    }
   }
 
-  const code = String(Math.floor(100000 + Math.random() * 900000));
-  await env.PROCESS_INDEX_KV.put(`auth:code:${email}`, JSON.stringify({ code, role: user.role }), {
-    expirationTtl: CODE_TTL_SECONDS,
-  });
-
-  await sendEmail(env, {
-    to: email,
-    subject: "Your sign-in code",
-    html: `<p>Your sign-in code is:</p><p style="font-size:28px;font-weight:700;letter-spacing:4px;">${code}</p><p>This code expires in 10 minutes.</p>`,
-  });
-
-  return jsonResponse({ ok: true });
-}
-
-async function handleVerifyCode(request, env) {
-  let body;
-  try { body = await request.json(); } catch { return badRequest("Invalid JSON body"); }
-  const email = String(body.email || "").trim().toLowerCase();
-  const code = String(body.code || "").trim();
-  if (!email || !code) return badRequest("Missing email or code");
-
-  const raw = await env.PROCESS_INDEX_KV.get(`auth:code:${email}`);
-  if (!raw) return jsonResponse({ error: "Incorrect or expired code" }, 401);
-
-  let stored;
-  try { stored = JSON.parse(raw); } catch { return jsonResponse({ error: "Incorrect or expired code" }, 401); }
-  if (stored.code !== code) return jsonResponse({ error: "Incorrect or expired code" }, 401);
-
-  await env.PROCESS_INDEX_KV.delete(`auth:code:${email}`);
+  if (!role) {
+    return jsonResponse({ error: "Incorrect email or password" }, 401);
+  }
 
   const token = crypto.randomUUID();
-  await env.PROCESS_INDEX_KV.put(`auth:session:${token}`, JSON.stringify({ email, role: stored.role }), {
+  await env.PROCESS_INDEX_KV.put(`auth:session:${token}`, JSON.stringify({ email, role }), {
     expirationTtl: SESSION_TTL_SECONDS,
   });
 
@@ -287,7 +248,10 @@ async function handleUsers(request, env) {
   if (!auth.ok) return auth.response;
 
   if (request.method === "GET") {
-    return jsonResponse({ users: await getUsers(env) });
+    const users = await getUsers(env);
+    // Never send password hashes/salts to the browser.
+    const safe = users.map(u => ({ email: u.email, role: u.role }));
+    return jsonResponse({ users: safe });
   }
 
   if (request.method === "POST") {
@@ -295,14 +259,26 @@ async function handleUsers(request, env) {
     try { body = await request.json(); } catch { return badRequest("Invalid JSON body"); }
     const email = String(body.email || "").trim().toLowerCase();
     const role = String(body.role || "").trim();
+    const password = String(body.password || "");
     if (!email || !email.includes("@")) return badRequest("Enter a valid email");
     if (!["admin", "editor", "viewer"].includes(role)) return badRequest("Invalid role");
 
     const users = await getUsers(env);
     const existing = findUserByEmail(users, email);
     const isNewPerson = !existing;
-    if (existing) existing.role = role;
-    else users.push({ email, role });
+    if (isNewPerson && !password) return badRequest("Set a password for this new person");
+
+    if (existing) {
+      existing.role = role;
+      if (password) {
+        const { hash, salt } = await hashPassword(password);
+        existing.passwordHash = hash;
+        existing.passwordSalt = salt;
+      }
+    } else {
+      const { hash, salt } = await hashPassword(password);
+      users.push({ email, role, passwordHash: hash, passwordSalt: salt });
+    }
     await saveUsers(env, users);
 
     if (isNewPerson) {
@@ -312,11 +288,12 @@ async function handleUsers(request, env) {
         to: email,
         subject: "You've been added to the Process Index",
         html: `<p>You've been given <strong>${roleLabel}</strong> access to the Process Index tool.</p>
-<p>Visit <a href="${siteUrl}">${siteUrl}</a> and enter this email address to sign in — you'll get a one-time code by email each time you log in, no password needed.</p>`,
+<p>Visit <a href="${siteUrl}">${siteUrl}</a> and sign in with this email address — ask whoever added you for your password.</p>`,
       });
     }
 
-    return jsonResponse({ ok: true, users });
+    const safe = users.map(u => ({ email: u.email, role: u.role }));
+    return jsonResponse({ ok: true, users: safe });
   }
 
   if (request.method === "DELETE") {
@@ -326,13 +303,14 @@ async function handleUsers(request, env) {
     const users = await getUsers(env);
     const next = users.filter(u => u.email.toLowerCase() !== email);
     await saveUsers(env, next);
-    return jsonResponse({ ok: true, users: next });
+    const safe = next.map(u => ({ email: u.email, role: u.role }));
+    return jsonResponse({ ok: true, users: safe });
   }
 
   return new Response("Method not allowed", { status: 405 });
 }
 
-/* ---------- Page-data endpoint, now role-gated ---------- */
+/* ---------- Page-data endpoint, role-gated ---------- */
 async function handleData(request, env) {
   const url = new URL(request.url);
   const page = url.searchParams.get("page");
@@ -363,8 +341,7 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === "/api/data") return handleData(request, env);
-    if (url.pathname === "/api/request-code" && request.method === "POST") return handleRequestCode(request, env);
-    if (url.pathname === "/api/verify-code" && request.method === "POST") return handleVerifyCode(request, env);
+    if (url.pathname === "/api/login" && request.method === "POST") return handleLogin(request, env);
     if (url.pathname === "/api/logout" && request.method === "POST") return handleLogout(request, env);
     if (url.pathname === "/api/whoami") return handleWhoami(request, env);
     if (url.pathname === "/api/users") return handleUsers(request, env);
