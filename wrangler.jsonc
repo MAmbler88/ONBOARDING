@@ -21,6 +21,4 @@
     }
   ],
   "vars": {
-    "INITIAL_ADMIN_EMAIL": "madison.ambler@learningonlinegroup.com"
-  }
-}
+    "INITIAL_ADMIN_EMAIL": "madison.ambler@learningonlinegroup.com",
