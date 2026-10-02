@@ -934,6 +934,7 @@ let state = {
   assigneeList: null,
   tagPalette: null,
   colorAssignments: null,
+  currentUser: null, // { email, role }
   data: {},
   filters: { site: "all", status: "all", search: "" }
 };
@@ -1748,24 +1749,59 @@ function openImportModal(){
 
 function renderPageSwitchNav(){
   const container = document.getElementById('pageSwitch');
+  const role = state.currentUser ? state.currentUser.role : null;
   let html = '';
   state.pageList.forEach(p=>{
     html += `<button class="page-tab ${state.currentPage===p.key?'active':''}" data-page="${escapeHtml(p.key)}">${escapeHtml(p.name)}</button>`;
   });
-  html += `<button class="page-tab settings-tab ${state.currentPage==='settings'?'active':''}" data-page="settings">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:-2px;margin-right:6px;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings
-  </button>`;
+  if(role === 'admin' || role === 'editor'){
+    html += `<button class="page-tab settings-tab ${state.currentPage==='settings'?'active':''}" data-page="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:-2px;margin-right:6px;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings
+    </button>`;
+  }
   container.innerHTML = html;
+  renderUserFooter();
+}
+
+function renderUserFooter(){
+  let footer = document.getElementById('userFooter');
+  if(!footer){
+    footer = document.createElement('div');
+    footer.id = 'userFooter';
+    footer.style.cssText = 'margin-top:14px; padding-top:14px; border-top:1px solid var(--line); font-size:12.5px; color:var(--ink-soft);';
+    document.getElementById('pageSwitch').insertAdjacentElement('afterend', footer);
+  }
+  if(!state.currentUser){ footer.innerHTML = ''; return; }
+  footer.innerHTML = `
+    <div style="margin-bottom:6px; word-break:break-all;">${escapeHtml(state.currentUser.email)}</div>
+    <div style="margin-bottom:8px; text-transform:capitalize;">${escapeHtml(state.currentUser.role)}</div>
+    <button class="side-action" id="logoutBtn" style="margin-top:0;">Log out</button>
+  `;
+  document.getElementById('logoutBtn').addEventListener('click', async ()=>{
+    try{ await fetch('/api/logout', { method:'POST' }); }catch(e){}
+    window.location.reload();
+  });
+}
+
+function applyRoleVisibility(){
+  const role = state.currentUser ? state.currentUser.role : null;
+  if(role === 'viewer'){
+    ['editToggle', 'resetBtn', 'importBtn'].forEach(id=>{
+      const el = document.getElementById(id);
+      if(el) el.style.display = 'none';
+    });
+  }
 }
 
 function setSidebarChromeVisible(visible){
+  const isViewer = state.currentUser && state.currentUser.role === 'viewer';
   document.getElementById('sideFilters').style.display = visible ? '' : 'none';
   document.getElementById('jumpLabel').style.display = visible ? '' : 'none';
   document.getElementById('jumpNav').style.display = visible ? '' : 'none';
   document.getElementById('statBlock').style.display = visible ? '' : 'none';
-  document.getElementById('resetBtn').style.display = visible ? '' : 'none';
-  document.getElementById('importBtn').style.display = visible ? '' : 'none';
-  document.getElementById('editToggle').style.display = visible ? '' : 'none';
+  document.getElementById('resetBtn').style.display = (visible && !isViewer) ? '' : 'none';
+  document.getElementById('importBtn').style.display = (visible && !isViewer) ? '' : 'none';
+  document.getElementById('editToggle').style.display = (visible && !isViewer) ? '' : 'none';
 }
 
 async function switchToPage(page){
@@ -1890,8 +1926,24 @@ function renderSettingsPage(){
   </button>
   <button class="side-action" id="resetPaletteBtn" style="margin-top:2px;">Reset to default colors</button>`;
 
+  const isAdmin = state.currentUser && state.currentUser.role === 'admin';
+  if(isAdmin){
+    html += `<h2 style="font-size:13px; font-weight:600; color:var(--ink); border-left:3px solid var(--brand); padding-left:10px; margin:32px 0 12px;">Users</h2>
+    <p style="font-size:13px; color:var(--ink-soft); margin:0 0 14px;">Only people added here can sign in. Admins can manage this list and everything else; Editors can edit tasks and other Settings; Viewers can only browse.</p>
+    <div id="usersListArea"><p style="font-size:13px; color:var(--ink-soft);">Loading users…</p></div>
+    <button class="add-section-btn" id="addUserBtn" style="margin-top:6px;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      Add person
+    </button>`;
+  }
+
   html += `</div>`;
   body.innerHTML = html;
+
+  if(isAdmin){
+    document.getElementById('addUserBtn').addEventListener('click', ()=>openUserModal(null));
+    loadUsersList();
+  }
 
   document.getElementById('addProcessBtn').addEventListener('click', ()=>openProcessModal(-1));
   document.querySelectorAll('[data-rename-process]').forEach(btn=>{
@@ -1968,6 +2020,129 @@ function renderSettingsPage(){
       showToast("Assignment removed");
     });
   });
+}
+
+async function loadUsersList(){
+  const area = document.getElementById('usersListArea');
+  try{
+    const res = await fetch('/api/users');
+    if(!res.ok) throw new Error('Bad response ' + res.status);
+    const data = await res.json();
+    renderUsersList(data.users || []);
+  }catch(e){
+    console.error('Could not load users', e);
+    if(area) area.innerHTML = `<p style="font-size:13px; color:var(--danger);">Could not load the users list — try refreshing.</p>`;
+  }
+}
+
+function renderUsersList(users){
+  const area = document.getElementById('usersListArea');
+  if(!area) return;
+  if(users.length === 0){
+    area.innerHTML = `<p style="font-size:13px; color:var(--ink-soft);">No one's been added yet — just the bootstrap admin from your Cloudflare config.</p>`;
+    return;
+  }
+  let html = '';
+  users.forEach(u=>{
+    html += `<div class="task-row" style="grid-template-columns:1fr auto;">
+      <div class="task-main">
+        <div class="task-name">${escapeHtml(u.email)}</div>
+        <div class="task-note" style="margin-top:2px; text-transform:capitalize;">${escapeHtml(u.role)}</div>
+      </div>
+      <div class="action">
+        <button class="icon-btn" data-edit-user="${escapeHtml(u.email)}" data-role="${escapeHtml(u.role)}" title="Change role">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        </button>
+        <button class="icon-btn danger" data-delete-user="${escapeHtml(u.email)}" title="Remove access">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>
+        </button>
+      </div>
+    </div>`;
+  });
+  area.innerHTML = html;
+
+  area.querySelectorAll('[data-edit-user]').forEach(btn=>{
+    btn.addEventListener('click', ()=>openUserModal({ email: btn.dataset.editUser, role: btn.dataset.role }));
+  });
+  area.querySelectorAll('[data-delete-user]').forEach(btn=>{
+    btn.addEventListener('click', ()=>deleteUserRow(btn.dataset.deleteUser));
+  });
+}
+
+function openUserModal(existing){
+  const isNew = !existing;
+  const box = document.getElementById('modalBox');
+  box.innerHTML = `
+    <h3>${isNew ? 'Add person' : 'Change role'}</h3>
+    <div class="field">
+      <label for="fUserEmail">Email</label>
+      <input type="email" id="fUserEmail" value="${isNew ? '' : escapeHtml(existing.email)}" placeholder="name@company.com" ${isNew ? '' : 'disabled'}>
+    </div>
+    <div class="field">
+      <label for="fUserRole">Role</label>
+      <select id="fUserRole">
+        <option value="admin" ${!isNew && existing.role==='admin' ? 'selected' : ''}>Admin — full access, manages Users</option>
+        <option value="editor" ${(isNew || existing.role==='editor') ? 'selected' : ''}>Editor — can edit tasks and Settings</option>
+        <option value="viewer" ${!isNew && existing.role==='viewer' ? 'selected' : ''}>Viewer — read-only</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="modalCancel">Cancel</button>
+      <button class="btn primary" id="modalSave">${isNew ? 'Add person' : 'Save'}</button>
+    </div>
+  `;
+  document.getElementById('modalOverlay').classList.add('show');
+  const emailInput = document.getElementById('fUserEmail');
+  if(isNew) emailInput.focus();
+
+  document.getElementById('modalCancel').addEventListener('click', closeModal);
+  document.getElementById('modalSave').addEventListener('click', async ()=>{
+    const email = emailInput.value.trim();
+    const role = document.getElementById('fUserRole').value;
+    if(!email || !email.includes('@')){ showToast('Enter a valid email'); return; }
+
+    try{
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, role })
+      });
+      if(!res.ok){
+        const err = await res.json().catch(()=>({}));
+        showToast(err.error || 'Could not save — try again');
+        return;
+      }
+      closeModal();
+      renderSettingsPage();
+      showToast(isNew ? 'Person added' : 'Role updated');
+    }catch(e){
+      showToast('Could not save — check your connection');
+    }
+  });
+}
+
+async function deleteUserRow(email){
+  if(state.currentUser && state.currentUser.email.toLowerCase() === email.toLowerCase()){
+    showToast("You can't remove your own access from here");
+    return;
+  }
+  if(!confirm(`Remove access for ${email}? They won't be able to sign in anymore.`)) return;
+
+  try{
+    const res = await fetch('/api/users', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    if(!res.ok){
+      showToast('Could not remove — try again');
+      return;
+    }
+    renderSettingsPage();
+    showToast('Access removed');
+  }catch(e){
+    showToast('Could not remove — check your connection');
+  }
 }
 
 function categoryLabel(cat){
@@ -2274,6 +2449,17 @@ async function deleteProcess(idx){
 /* ============ Init ============ */
 (async function init(){
   try{
+    try{
+      const whoRes = await fetch('/api/whoami');
+      const who = await whoRes.json();
+      if(who.signedIn){
+        state.currentUser = { email: who.email, role: who.role };
+      }
+    }catch(e){
+      console.error("Could not determine signed-in user", e);
+    }
+    applyRoleVisibility();
+
     state.pageList = await loadPage(PAGELIST_KEY);
     state.siteList = await loadPage(SITELIST_KEY);
     if(!state.siteList.some(s => s.key === 'all')){
@@ -2307,4 +2493,3 @@ async function deleteProcess(idx){
 
 </body>
 </html>
-
