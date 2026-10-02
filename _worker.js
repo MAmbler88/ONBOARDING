@@ -186,6 +186,31 @@ function loginPageHtml() {
 }
 
 /* ---------- Auth endpoints ---------- */
+async function sendEmail(env, { to, subject, html }) {
+  if (!env.RESEND_API_KEY) return;
+  try {
+    // Secrets Store bindings expose the value via .get(), not as a plain string.
+    const resendKey = typeof env.RESEND_API_KEY.get === "function"
+      ? await env.RESEND_API_KEY.get()
+      : env.RESEND_API_KEY;
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${resendKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: env.RESEND_FROM || "onboarding@resend.dev",
+        to,
+        subject,
+        html,
+      }),
+    });
+  } catch (e) {
+    // Swallow — don't leak email-sending failures to the client.
+  }
+}
+
 async function handleRequestCode(request, env) {
   let body;
   try { body = await request.json(); } catch { return badRequest("Invalid JSON body"); }
@@ -211,29 +236,11 @@ async function handleRequestCode(request, env) {
     expirationTtl: CODE_TTL_SECONDS,
   });
 
-  if (env.RESEND_API_KEY) {
-    try {
-      // Secrets Store bindings expose the value via .get(), not as a plain string.
-      const resendKey = typeof env.RESEND_API_KEY.get === "function"
-        ? await env.RESEND_API_KEY.get()
-        : env.RESEND_API_KEY;
-      await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${resendKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          from: env.RESEND_FROM || "onboarding@resend.dev",
-          to: email,
-          subject: "Your sign-in code",
-          html: `<p>Your sign-in code is:</p><p style="font-size:28px;font-weight:700;letter-spacing:4px;">${code}</p><p>This code expires in 10 minutes.</p>`,
-        }),
-      });
-    } catch (e) {
-      // Swallow — don't leak email-sending failures to the client.
-    }
-  }
+  await sendEmail(env, {
+    to: email,
+    subject: "Your sign-in code",
+    html: `<p>Your sign-in code is:</p><p style="font-size:28px;font-weight:700;letter-spacing:4px;">${code}</p><p>This code expires in 10 minutes.</p>`,
+  });
 
   return jsonResponse({ ok: true });
 }
@@ -293,9 +300,22 @@ async function handleUsers(request, env) {
 
     const users = await getUsers(env);
     const existing = findUserByEmail(users, email);
+    const isNewPerson = !existing;
     if (existing) existing.role = role;
     else users.push({ email, role });
     await saveUsers(env, users);
+
+    if (isNewPerson) {
+      const siteUrl = new URL(request.url).origin;
+      const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
+      await sendEmail(env, {
+        to: email,
+        subject: "You've been added to the Process Index",
+        html: `<p>You've been given <strong>${roleLabel}</strong> access to the Process Index tool.</p>
+<p>Visit <a href="${siteUrl}">${siteUrl}</a> and enter this email address to sign in — you'll get a one-time code by email each time you log in, no password needed.</p>`,
+      });
+    }
+
     return jsonResponse({ ok: true, users });
   }
 
