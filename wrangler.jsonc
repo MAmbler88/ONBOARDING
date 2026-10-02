@@ -11,5 +11,8 @@
       "binding": "PROCESS_INDEX_KV",
       "id": "fd44483a5c5346c3a31bf040dab9b66b"
     }
-  ]
+  ],
+  "vars": {
+    "INITIAL_ADMIN_EMAIL": "madison.ambler@learningonlinegroup.com"
+  }
 }
