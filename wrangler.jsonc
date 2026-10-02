@@ -13,6 +13,13 @@
       "id": "fd44483a5c5346c3a31bf040dab9b66b"
     }
   ],
+  "secrets_store_secrets": [
+    {
+      "binding": "RESEND_API_KEY",
+      "store_id": "6ac1a9c9d5584ce3b97ffa6a2791cce6",
+      "secret_name": "RESEND_API_KEY"
+    }
+  ],
   "vars": {
     "INITIAL_ADMIN_EMAIL": "madison.ambler@learningonlinegroup.com"
   }
